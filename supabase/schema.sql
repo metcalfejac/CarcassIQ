@@ -17,11 +17,16 @@ create table if not exists public.costings (
   waste_weight_kg numeric not null default 0,
   selling_price_per_kg numeric not null default 0,
   -- fraction, e.g. 0.30 for 30%
-  target_margin_pct numeric not null default 0
+  target_margin_pct numeric not null default 0,
+  -- Whole-carcass costing: set on every cut saved together from one carcass.
+  carcass_group_id uuid,
+  carcass_product_name text,
+  carcass_deadweight_kg numeric
 );
 
 create index if not exists costings_user_id_idx on public.costings (user_id);
 create index if not exists costings_supplier_idx on public.costings (supplier);
+create index if not exists costings_carcass_group_idx on public.costings (carcass_group_id);
 
 alter table public.costings enable row level security;
 
