@@ -425,6 +425,7 @@ export default function NewCosting() {
                 <NumberInput
                   value={carcassMeta.targetMarginPct}
                   onChange={(v) => updateCarcassMeta('targetMarginPct', v)}
+                  step={1}
                 />
               </Field>
             </div>
@@ -609,7 +610,7 @@ export default function NewCosting() {
                 <NumberInput value={form.sellingPricePerKg} onChange={(v) => update('sellingPricePerKg', v)} />
               </Field>
               <Field label="Target gross margin (%)">
-                <NumberInput value={form.targetMarginPct} onChange={(v) => update('targetMarginPct', v)} />
+                <NumberInput value={form.targetMarginPct} onChange={(v) => update('targetMarginPct', v)} step={1} />
               </Field>
             </div>
 
@@ -685,12 +686,20 @@ function Field({ label, children, className = '' }: { label: string; children: R
   );
 }
 
-function NumberInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function NumberInput({
+  value,
+  onChange,
+  step = 0.01,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  step?: number;
+}) {
   return (
     <input
       type="number"
       inputMode="decimal"
-      step="0.01"
+      step={step}
       min="0"
       required
       value={value}
