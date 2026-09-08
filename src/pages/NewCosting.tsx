@@ -501,7 +501,7 @@ export default function NewCosting() {
                         onChange={(v) => updateCut(cut.key, 'trimValuePerKg', v)}
                       />
                     </CompactField>
-                    <CompactField label="Waste wt (kg)">
+                    <CompactField label="Waste/Drip (kg)">
                       <CompactNumberInput
                         value={cut.wasteWeightKg}
                         onChange={(v) => updateCut(cut.key, 'wasteWeightKg', v)}
@@ -602,7 +602,7 @@ export default function NewCosting() {
               <Field label="Trim value (£/kg)">
                 <NumberInput value={form.trimValuePerKg} onChange={(v) => update('trimValuePerKg', v)} />
               </Field>
-              <Field label="Waste weight (kg)">
+              <Field label="Waste/Drip loss (kg)">
                 <NumberInput value={form.wasteWeightKg} onChange={(v) => update('wasteWeightKg', v)} />
               </Field>
 
