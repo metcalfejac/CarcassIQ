@@ -580,7 +580,7 @@ export default function NewCosting() {
                 />
               </Field>
 
-              <Field label="Purchase weight (kg)">
+              <Field label="Purchase weight/Joint weight (kg)">
                 <NumberInput value={form.purchaseWeightKg} onChange={(v) => update('purchaseWeightKg', v)} />
               </Field>
               <Field label="Purchase price (£/kg)">
