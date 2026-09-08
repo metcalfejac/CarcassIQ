@@ -403,7 +403,7 @@ export default function NewCosting() {
                   className={inputClasses}
                 />
               </Field>
-              <Field label="Supplier" className="col-span-2">
+              <Field label="Supplier/Batch Code/Tag ID" className="col-span-2">
                 <input
                   required
                   value={carcassMeta.supplier}
@@ -570,7 +570,7 @@ export default function NewCosting() {
                   className={inputClasses}
                 />
               </Field>
-              <Field label="Supplier" className="col-span-2">
+              <Field label="Supplier/Batch Code/Tag ID" className="col-span-2">
                 <input
                   required
                   value={form.supplier}
