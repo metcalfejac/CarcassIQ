@@ -437,7 +437,7 @@ export default function NewCosting() {
             )}
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Cuts</h2>
               <button
@@ -455,57 +455,61 @@ export default function NewCosting() {
               const cutHasInput = num(cut.saleableWeightKg) > 0;
 
               return (
-                <div key={cut.key} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-700">Cut {index + 1}</h3>
+                <div key={cut.key} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 shrink-0 text-xs font-semibold text-slate-400">#{index + 1}</span>
+                    <input
+                      required
+                      value={cut.cutName}
+                      onChange={(e) => updateCut(cut.key, 'cutName', e.target.value)}
+                      placeholder="Cut name, e.g. Leg"
+                      className="min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-1.5 text-sm font-medium focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+                    />
                     <button
                       type="button"
                       onClick={() => removeCut(cut.key)}
                       disabled={cuts.length <= 1}
-                      className="text-sm text-red-600 hover:underline disabled:opacity-40"
+                      className="shrink-0 text-xs text-red-600 hover:underline disabled:opacity-40"
                     >
                       Remove
                     </button>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    <Field label="Cut name" className="col-span-2">
-                      <input
-                        required
-                        value={cut.cutName}
-                        onChange={(e) => updateCut(cut.key, 'cutName', e.target.value)}
-                        placeholder="e.g. Leg"
-                        className={inputClasses}
-                      />
-                    </Field>
-                    <Field label="Saleable weight (kg)">
-                      <NumberInput
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                    <CompactField label="Saleable wt (kg)">
+                      <CompactNumberInput
                         value={cut.saleableWeightKg}
                         onChange={(v) => updateCut(cut.key, 'saleableWeightKg', v)}
                       />
-                    </Field>
-                    <Field label="Recoverable trim weight (kg)">
-                      <NumberInput value={cut.trimWeightKg} onChange={(v) => updateCut(cut.key, 'trimWeightKg', v)} />
-                    </Field>
-                    <Field label="Trim value (£/kg)">
-                      <NumberInput
-                        value={cut.trimValuePerKg}
-                        onChange={(v) => updateCut(cut.key, 'trimValuePerKg', v)}
-                      />
-                    </Field>
-                    <Field label="Waste weight (kg)">
-                      <NumberInput value={cut.wasteWeightKg} onChange={(v) => updateCut(cut.key, 'wasteWeightKg', v)} />
-                    </Field>
-                    <Field label="Selling price (£/kg)" className="col-span-2">
-                      <NumberInput
+                    </CompactField>
+                    <CompactField label="Selling £/kg">
+                      <CompactNumberInput
                         value={cut.sellingPricePerKg}
                         onChange={(v) => updateCut(cut.key, 'sellingPricePerKg', v)}
                       />
-                    </Field>
+                    </CompactField>
+                    <CompactField label="Trim wt (kg)">
+                      <CompactNumberInput
+                        value={cut.trimWeightKg}
+                        onChange={(v) => updateCut(cut.key, 'trimWeightKg', v)}
+                      />
+                    </CompactField>
+                    <CompactField label="Trim £/kg">
+                      <CompactNumberInput
+                        value={cut.trimValuePerKg}
+                        onChange={(v) => updateCut(cut.key, 'trimValuePerKg', v)}
+                      />
+                    </CompactField>
+                    <CompactField label="Waste wt (kg)">
+                      <CompactNumberInput
+                        value={cut.wasteWeightKg}
+                        onChange={(v) => updateCut(cut.key, 'wasteWeightKg', v)}
+                      />
+                    </CompactField>
                   </div>
 
                   {cutHasInput && (
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-sm">
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2 text-xs">
                       <span className="text-slate-500">
                         Cut weight {formatKg(cutResult.cutWeightKg)} · Allocated cost {formatGBP(cutResult.adjustedCost)}{' '}
                         ({formatGBP(cutResult.adjustedUsableCostPerKg)}/kg)
@@ -692,6 +696,33 @@ function NumberInput({ value, onChange }: { value: string; onChange: (v: string)
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className={inputClasses}
+    />
+  );
+}
+
+function CompactField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block text-xs font-medium text-slate-500">
+      {label}
+      <div className="mt-0.5">{children}</div>
+    </label>
+  );
+}
+
+const compactInputClasses =
+  'w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600';
+
+function CompactNumberInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <input
+      type="number"
+      inputMode="decimal"
+      step="0.01"
+      min="0"
+      required
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={compactInputClasses}
     />
   );
 }
