@@ -63,7 +63,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       managed_payments: { enabled: false },
     });
 
-    res.status(200).json({ url: session.url });
+    res.status(200).json({
+      url: session.url,
+      amount_subtotal: session.amount_subtotal,
+      amount_total: session.amount_total,
+      total_details: session.total_details,
+    });
   } catch (err) {
     console.error('create-checkout-session error', err);
     res.status(500).json({ error: err instanceof Error ? err.message : 'Internal error' });
