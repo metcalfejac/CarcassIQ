@@ -14,6 +14,7 @@ interface FormState {
   purchaseWeightKg: string;
   purchasePricePerKg: string;
   saleableWeightKg: string;
+  wasteLabel: string;
   wasteWeightKg: string;
   sellingPricePerKg: string;
   /** Whole percent, e.g. "30" */
@@ -26,6 +27,7 @@ const emptyForm: FormState = {
   purchaseWeightKg: '',
   purchasePricePerKg: '',
   saleableWeightKg: '',
+  wasteLabel: '',
   wasteWeightKg: '',
   sellingPricePerKg: '',
   targetMarginPct: '30',
@@ -94,6 +96,7 @@ interface CutFormState {
   cutName: string;
   saleableWeightKg: string;
   trimGroups: TrimGroupFormState[];
+  wasteLabel: string;
   wasteWeightKg: string;
   sellingPricePerKg: string;
 }
@@ -104,6 +107,7 @@ function newCut(): CutFormState {
     cutName: '',
     saleableWeightKg: '',
     trimGroups: [newTrimGroup()],
+    wasteLabel: '',
     wasteWeightKg: '',
     sellingPricePerKg: '',
   };
@@ -159,6 +163,7 @@ export default function NewCosting() {
             purchaseWeightKg: String(data.purchase_weight_kg ?? ''),
             purchasePricePerKg: String(data.purchase_price_per_kg ?? ''),
             saleableWeightKg: String(data.saleable_weight_kg ?? ''),
+            wasteLabel: data.waste_label ?? '',
             wasteWeightKg: String(data.waste_weight_kg ?? ''),
             sellingPricePerKg: String(data.selling_price_per_kg ?? ''),
             targetMarginPct: String((data.target_margin_pct ?? 0) * 100),
@@ -225,6 +230,7 @@ export default function NewCosting() {
         weight_kg: num(g.weightKg),
         value_per_kg: num(g.valuePerKg),
       })),
+      waste_label: form.wasteLabel.trim() || null,
       waste_weight_kg: num(form.wasteWeightKg),
       selling_price_per_kg: num(form.sellingPricePerKg),
       target_margin_pct: num(form.targetMarginPct) / 100,
@@ -282,6 +288,7 @@ export default function NewCosting() {
               cutName: row.product_name ?? '',
               saleableWeightKg: String(row.saleable_weight_kg ?? ''),
               trimGroups: trimGroupsFromRecord(row),
+              wasteLabel: row.waste_label ?? '',
               wasteWeightKg: String(row.waste_weight_kg ?? ''),
               sellingPricePerKg: String(row.selling_price_per_kg ?? ''),
             }))
@@ -396,6 +403,7 @@ export default function NewCosting() {
             weight_kg: num(g.weightKg),
             value_per_kg: num(g.valuePerKg),
           })),
+          waste_label: cut.wasteLabel.trim() || null,
           waste_weight_kg: waste,
           selling_price_per_kg: num(cut.sellingPricePerKg),
           target_margin_pct: targetMarginFraction,
@@ -570,7 +578,7 @@ export default function NewCosting() {
                     </button>
                   </div>
 
-                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  <div className="mt-2 grid grid-cols-2 gap-2">
                     <CompactField label="Saleable wt (kg)">
                       <CompactNumberInput
                         value={cut.saleableWeightKg}
@@ -583,7 +591,18 @@ export default function NewCosting() {
                         onChange={(v) => updateCut(cut.key, 'sellingPricePerKg', v)}
                       />
                     </CompactField>
-                    <CompactField label="Waste/Drip (kg)">
+                  </div>
+
+                  <div className="mt-2 grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)] gap-1.5">
+                    <CompactField label="Waste/Drip">
+                      <input
+                        value={cut.wasteLabel}
+                        onChange={(e) => updateCut(cut.key, 'wasteLabel', e.target.value)}
+                        placeholder="e.g. Bones"
+                        className={compactInputClasses}
+                      />
+                    </CompactField>
+                    <CompactField label="Weight (kg)">
                       <CompactNumberInput
                         value={cut.wasteWeightKg}
                         onChange={(v) => updateCut(cut.key, 'wasteWeightKg', v)}
@@ -688,7 +707,17 @@ export default function NewCosting() {
                 <NumberInput value={form.saleableWeightKg} onChange={(v) => update('saleableWeightKg', v)} />
               </Field>
               <Field label="Waste/Drip loss (kg)">
-                <NumberInput value={form.wasteWeightKg} onChange={(v) => update('wasteWeightKg', v)} />
+                <div className="grid grid-cols-[1fr_auto] gap-2">
+                  <input
+                    value={form.wasteLabel}
+                    onChange={(e) => update('wasteLabel', e.target.value)}
+                    placeholder="e.g. Bones"
+                    className={inputClasses}
+                  />
+                  <div className="w-24">
+                    <NumberInput value={form.wasteWeightKg} onChange={(v) => update('wasteWeightKg', v)} />
+                  </div>
+                </div>
               </Field>
 
               <div className="col-span-2">
@@ -865,7 +894,7 @@ function TrimGroupsEditor({
             <input
               value={g.label}
               onChange={(e) => onUpdate(g.key, 'label', e.target.value)}
-              placeholder={compact ? 'Trim type' : 'e.g. Diced beef'}
+              placeholder={compact ? 'Trim type' : 'e.g. Burger trim'}
               className={cellClasses}
             />
             <input

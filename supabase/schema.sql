@@ -17,6 +17,8 @@ create table if not exists public.costings (
   -- Trim breakdown by use (e.g. diced beef vs mince): [{label, weight_kg, value_per_kg}].
   -- trim_weight_kg/trim_value_per_kg above are this array's aggregate.
   trim_groups jsonb,
+  -- e.g. "Bones" — what the waste/drip loss was.
+  waste_label text,
   waste_weight_kg numeric not null default 0,
   selling_price_per_kg numeric not null default 0,
   -- fraction, e.g. 0.30 for 30%

@@ -20,6 +20,8 @@ export interface CostingRecord {
    *  and trim_value_per_kg above are the aggregate of this. Null for rows
    *  saved before this feature existed. */
   trim_groups: TrimGroupRecord[] | null;
+  /** e.g. "Bones" — what the waste/drip loss was. */
+  waste_label: string | null;
   waste_weight_kg: number;
   selling_price_per_kg: number;
   /** Fraction, e.g. 0.30 for 30% */
