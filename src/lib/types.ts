@@ -52,4 +52,6 @@ export interface ManufacturedProductRecord {
   unit_weight_kg: number | null;
   /** Actual yield, if known/entered (takes precedence over an estimate). */
   units_produced: number | null;
+  /** Fraction, e.g. 0.30 for 30% */
+  target_margin_pct: number;
 }

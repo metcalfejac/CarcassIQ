@@ -208,6 +208,8 @@ export interface ManufacturedProductInputs {
   unitWeightKg: number;
   /** User-entered actual yield, if known — takes precedence over a weight-derived estimate. */
   unitsProducedActual: number;
+  /** Fraction, e.g. 0.30 for 30% */
+  targetMarginPct: number;
 }
 
 export interface ManufacturedProductResults {
@@ -223,10 +225,13 @@ export interface ManufacturedProductResults {
   revenue: number;
   grossProfit: number;
   grossMarginPct: number;
+  /** £/kg if sellingMethod is 'per_kg', £/unit if 'per_unit'. Null if the
+   *  method is per-unit but no unit count is available yet. */
+  requiredSellingPrice: number | null;
 }
 
 export function calculateManufacturedProduct(inputs: ManufacturedProductInputs): ManufacturedProductResults {
-  const { ingredients, sellingMethod, sellingPrice, unitWeightKg, unitsProducedActual } = inputs;
+  const { ingredients, sellingMethod, sellingPrice, unitWeightKg, unitsProducedActual, targetMarginPct } = inputs;
 
   const totalWeightKg = ingredients.reduce((sum, i) => sum + i.weightKg, 0);
   const totalBatchCost = ingredients.reduce((sum, i) => sum + i.weightKg * i.costPerKg, 0);
@@ -249,6 +254,17 @@ export function calculateManufacturedProduct(inputs: ManufacturedProductInputs):
   const grossProfit = revenue - totalBatchCost;
   const grossMarginPct = revenue > 0 ? grossProfit / revenue : 0;
 
+  const requiredSellingPrice =
+    targetMarginPct < 1
+      ? sellingMethod === 'per_kg'
+        ? totalWeightKg > 0
+          ? totalBatchCost / (totalWeightKg * (1 - targetMarginPct))
+          : null
+        : unitsProduced && unitsProduced > 0
+          ? totalBatchCost / (unitsProduced * (1 - targetMarginPct))
+          : null
+      : null;
+
   return {
     totalWeightKg,
     totalBatchCost,
@@ -259,5 +275,6 @@ export function calculateManufacturedProduct(inputs: ManufacturedProductInputs):
     revenue,
     grossProfit,
     grossMarginPct,
+    requiredSellingPrice,
   };
 }

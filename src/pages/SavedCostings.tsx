@@ -403,6 +403,7 @@ function ManufacturedRow({
     sellingPrice: product.selling_price,
     unitWeightKg: product.unit_weight_kg ?? 0,
     unitsProducedActual: product.units_produced ?? 0,
+    targetMarginPct: product.target_margin_pct,
   });
 
   return (

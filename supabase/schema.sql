@@ -67,7 +67,9 @@ create table if not exists public.manufactured_products (
   -- Weight per finished unit, if known/entered.
   unit_weight_kg numeric,
   -- Actual yield, if known/entered (takes precedence over an estimate).
-  units_produced numeric
+  units_produced numeric,
+  -- fraction, e.g. 0.30 for 30%
+  target_margin_pct numeric not null default 0
 );
 
 create index if not exists manufactured_products_user_id_idx on public.manufactured_products (user_id);

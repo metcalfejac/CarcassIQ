@@ -2,10 +2,11 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
-import { calculateManufacturedProduct } from '../lib/calculations';
+import { calculateManufacturedProduct, getMarginStatus } from '../lib/calculations';
 import type { SellingMethod } from '../lib/calculations';
 import { formatGBP, formatKg, formatPct } from '../lib/format';
 import { Field, NumberInput, Result, inputClasses } from '../components/FormFields';
+import MarginBadge from '../components/MarginBadge';
 
 interface IngredientFormState {
   key: string;
@@ -24,6 +25,8 @@ interface ManufacturedFormState {
   sellingPrice: string;
   unitWeightKg: string;
   unitsProducedActual: string;
+  /** Whole percent, e.g. "30" */
+  targetMarginPct: string;
 }
 
 const emptyForm: ManufacturedFormState = {
@@ -32,6 +35,7 @@ const emptyForm: ManufacturedFormState = {
   sellingPrice: '',
   unitWeightKg: '',
   unitsProducedActual: '',
+  targetMarginPct: '30',
 };
 
 function num(v: string): number {
@@ -92,6 +96,7 @@ export default function ManufacturedProductForm() {
             sellingPrice: String(data.selling_price ?? ''),
             unitWeightKg: data.unit_weight_kg != null ? String(data.unit_weight_kg) : '',
             unitsProducedActual: data.units_produced != null ? String(data.units_produced) : '',
+            targetMarginPct: String((data.target_margin_pct ?? 0) * 100),
           });
           const loaded = Array.isArray(data.ingredients) ? data.ingredients : [];
           setIngredients(
@@ -117,9 +122,12 @@ export default function ManufacturedProductForm() {
         sellingPrice: num(form.sellingPrice),
         unitWeightKg: toKg(form.unitWeightKg, weightUnit),
         unitsProducedActual: num(form.unitsProducedActual),
+        targetMarginPct: num(form.targetMarginPct) / 100,
       }),
     [ingredients, form, weightUnit]
   );
+
+  const marginStatus = getMarginStatus(results.grossMarginPct, num(form.targetMarginPct) / 100);
 
   const hasIngredientInput = ingredients.some((i) => num(i.weightKg) > 0);
 
@@ -164,6 +172,7 @@ export default function ManufacturedProductForm() {
       })),
       unit_weight_kg: form.unitWeightKg.trim() ? toKg(form.unitWeightKg, weightUnit) : null,
       units_produced: form.unitsProducedActual.trim() ? num(form.unitsProducedActual) : null,
+      target_margin_pct: num(form.targetMarginPct) / 100,
     };
 
     const query = editId
@@ -217,6 +226,9 @@ export default function ManufacturedProductForm() {
           </Field>
           <Field label={form.sellingMethod === 'per_kg' ? 'Selling price (£/kg)' : 'Selling price (£/unit)'}>
             <NumberInput value={form.sellingPrice} onChange={(v) => updateForm('sellingPrice', v)} />
+          </Field>
+          <Field label="Target gross margin (%)" className="col-span-2">
+            <NumberInput value={form.targetMarginPct} onChange={(v) => updateForm('targetMarginPct', v)} step={1} />
           </Field>
         </div>
       </div>
@@ -326,7 +338,10 @@ export default function ManufacturedProductForm() {
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Results</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-900">Results</h2>
+          {hasIngredientInput && <MarginBadge status={marginStatus} />}
+        </div>
 
         {!hasIngredientInput ? (
           <p className="mt-4 text-sm text-slate-500">Add at least one ingredient with a weight to see live results.</p>
@@ -344,6 +359,13 @@ export default function ManufacturedProductForm() {
             <Result label="Revenue" value={formatGBP(results.revenue)} />
             <Result label="Gross profit" value={formatGBP(results.grossProfit)} />
             <Result label="Gross margin" value={formatPct(results.grossMarginPct)} highlight />
+            {results.requiredSellingPrice !== null && (
+              <Result
+                label="Required selling price for target margin"
+                value={`${formatGBP(results.requiredSellingPrice)}${form.sellingMethod === 'per_kg' ? '/kg' : '/unit'}`}
+                highlight
+              />
+            )}
           </dl>
         )}
       </div>
