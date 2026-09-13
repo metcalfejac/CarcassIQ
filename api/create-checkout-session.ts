@@ -57,6 +57,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
       success_url: `${origin}/billing?checkout=success`,
       cancel_url: `${origin}/billing?checkout=cancelled`,
+      // Managed Payments (Stripe's merchant-of-record mode, on by default for
+      // new accounts) auto-calculates and adds VAT. CarcassIQ isn't VAT
+      // registered, so £9 should be the final price the customer pays.
+      managed_payments: { enabled: false },
     });
 
     res.status(200).json({ url: session.url });
