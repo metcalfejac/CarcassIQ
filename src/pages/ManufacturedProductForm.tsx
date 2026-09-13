@@ -7,6 +7,7 @@ import type { SellingMethod } from '../lib/calculations';
 import { formatGBP, formatKg, formatPct } from '../lib/format';
 import { Field, NumberInput, Result, inputClasses } from '../components/FormFields';
 import MarginBadge from '../components/MarginBadge';
+import { useSuggestions } from '../lib/useSuggestions';
 
 interface IngredientFormState {
   key: string;
@@ -66,6 +67,7 @@ export default function ManufacturedProductForm() {
   const { session } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const suggestions = useSuggestions();
 
   const editId = searchParams.get('manufactured');
   const duplicateId = searchParams.get('duplicateManufactured');
@@ -196,6 +198,17 @@ export default function ManufacturedProductForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <datalist id="manufactured-product-name-suggestions">
+        {suggestions.productNames.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
+      <datalist id="ingredient-name-suggestions">
+        {suggestions.ingredientNames.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
+
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="text-lg font-semibold text-slate-900">
           {editId ? 'Edit manufactured product' : 'New manufactured product'}
@@ -212,6 +225,7 @@ export default function ManufacturedProductForm() {
               onChange={(e) => updateForm('productName', e.target.value)}
               placeholder="e.g. Beef burgers"
               className={inputClasses}
+              list="manufactured-product-name-suggestions"
             />
           </Field>
           <Field label="Selling method">
@@ -292,6 +306,7 @@ export default function ManufacturedProductForm() {
                   onChange={(e) => updateIngredient(ing.key, 'name', e.target.value)}
                   placeholder="e.g. Beef trim"
                   className={`col-span-2 sm:col-span-1 ${inputClasses}`}
+                  list="ingredient-name-suggestions"
                 />
                 <NumberInput value={ing.weightKg} onChange={(v) => updateIngredient(ing.key, 'weightKg', v)} />
                 <NumberInput value={ing.costPerKg} onChange={(v) => updateIngredient(ing.key, 'costPerKg', v)} />

@@ -9,6 +9,7 @@ import type { TrimGroupRecord } from '../lib/types';
 import MarginBadge from '../components/MarginBadge';
 import { CompactField, CompactNumberInput, Field, NumberInput, Result, compactInputClasses, inputClasses } from '../components/FormFields';
 import ManufacturedProductForm from './ManufacturedProductForm';
+import { useSuggestions } from '../lib/useSuggestions';
 
 interface FormState {
   productName: string;
@@ -124,6 +125,7 @@ export default function NewCosting() {
   const { session } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const suggestions = useSuggestions();
 
   const editId = searchParams.get('id');
   const duplicateId = searchParams.get('duplicate');
@@ -463,6 +465,22 @@ export default function NewCosting() {
 
   return (
     <div className="space-y-6">
+      <datalist id="product-name-suggestions">
+        {suggestions.productNames.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
+      <datalist id="supplier-suggestions">
+        {suggestions.supplierNames.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
+      <datalist id="cut-name-suggestions">
+        {suggestions.cutNames.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
+
       {!isDeepLinked && (
         <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
           <button
@@ -521,6 +539,7 @@ export default function NewCosting() {
                   onChange={(e) => updateCarcassMeta('carcassName', e.target.value)}
                   placeholder="e.g. Whole lamb"
                   className={inputClasses}
+                  list="product-name-suggestions"
                 />
               </Field>
               <Field label="Supplier/Batch Code/Tag ID" className="col-span-2">
@@ -530,6 +549,7 @@ export default function NewCosting() {
                   onChange={(e) => updateCarcassMeta('supplier', e.target.value)}
                   placeholder="e.g. Green Farm Meats"
                   className={inputClasses}
+                  list="supplier-suggestions"
                 />
               </Field>
               <Field label="Deadweight (kg)">
@@ -585,6 +605,7 @@ export default function NewCosting() {
                       onChange={(e) => updateCut(cut.key, 'cutName', e.target.value)}
                       placeholder="Cut name, e.g. Leg"
                       className="min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-1.5 text-sm font-medium focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+                      list="cut-name-suggestions"
                     />
                     <button
                       type="button"
@@ -702,6 +723,7 @@ export default function NewCosting() {
                   onChange={(e) => update('productName', e.target.value)}
                   placeholder="e.g. Sirloin"
                   className={inputClasses}
+                  list="product-name-suggestions"
                 />
               </Field>
               <Field label="Supplier/Batch Code/Tag ID" className="col-span-2">
@@ -711,6 +733,7 @@ export default function NewCosting() {
                   onChange={(e) => update('supplier', e.target.value)}
                   placeholder="e.g. Green Farm Meats"
                   className={inputClasses}
+                  list="supplier-suggestions"
                 />
               </Field>
 
