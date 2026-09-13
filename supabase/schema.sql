@@ -52,6 +52,45 @@ create policy "Users can delete their own costings"
   on public.costings for delete
   using (auth.uid() = user_id);
 
+-- Manufactured products: burgers, sausages, pies, ready meals — costed
+-- from a list of ingredients rather than a single purchase weight.
+create table if not exists public.manufactured_products (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  product_name text not null,
+  selling_method text not null default 'per_kg', -- 'per_kg' | 'per_unit'
+  selling_price numeric not null default 0,
+  -- [{name, weight_kg, cost_per_kg}]
+  ingredients jsonb not null default '[]'::jsonb,
+  -- Weight per finished unit, if known/entered.
+  unit_weight_kg numeric,
+  -- Actual yield, if known/entered (takes precedence over an estimate).
+  units_produced numeric
+);
+
+create index if not exists manufactured_products_user_id_idx on public.manufactured_products (user_id);
+
+alter table public.manufactured_products enable row level security;
+
+create policy "Users can view their own manufactured products"
+  on public.manufactured_products for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert their own manufactured products"
+  on public.manufactured_products for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own manufactured products"
+  on public.manufactured_products for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete their own manufactured products"
+  on public.manufactured_products for delete
+  using (auth.uid() = user_id);
+
 create or replace function public.set_updated_at()
 returns trigger as $$
 begin
@@ -63,5 +102,11 @@ $$ language plpgsql;
 drop trigger if exists costings_set_updated_at on public.costings;
 create trigger costings_set_updated_at
   before update on public.costings
+  for each row
+  execute function public.set_updated_at();
+
+drop trigger if exists manufactured_products_set_updated_at on public.manufactured_products;
+create trigger manufactured_products_set_updated_at
+  before update on public.manufactured_products
   for each row
   execute function public.set_updated_at();

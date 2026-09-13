@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,6 +7,8 @@ import type { TrimGroup } from '../lib/calculations';
 import { formatGBP, formatPct, formatKg } from '../lib/format';
 import type { TrimGroupRecord } from '../lib/types';
 import MarginBadge from '../components/MarginBadge';
+import { CompactField, CompactNumberInput, Field, NumberInput, Result, compactInputClasses, inputClasses } from '../components/FormFields';
+import ManufacturedProductForm from './ManufacturedProductForm';
 
 interface FormState {
   productName: string;
@@ -118,9 +120,6 @@ function num(v: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-const inputClasses =
-  'w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600';
-
 export default function NewCosting() {
   const { session } = useAuth();
   const navigate = useNavigate();
@@ -134,10 +133,16 @@ export default function NewCosting() {
   const duplicateGroupIdParam = searchParams.get('duplicateCarcassGroup');
   const sourceGroupId = editGroupIdParam ?? duplicateGroupIdParam;
 
-  const isDeepLinked = Boolean(sourceId || sourceGroupId);
+  const sourceManufacturedId = searchParams.get('manufactured') ?? searchParams.get('duplicateManufactured');
 
-  const [mode, setMode] = useState<'single' | 'carcass'>(sourceGroupId ? 'carcass' : 'single');
-  const [loadingSource, setLoadingSource] = useState(isDeepLinked);
+  const isDeepLinked = Boolean(sourceId || sourceGroupId || sourceManufacturedId);
+
+  const [mode, setMode] = useState<'single' | 'carcass' | 'manufactured'>(
+    sourceGroupId ? 'carcass' : sourceManufacturedId ? 'manufactured' : 'single'
+  );
+  // Only single/carcass loading is tracked here — the manufactured form
+  // manages its own loading state independently.
+  const [loadingSource, setLoadingSource] = useState(Boolean(sourceId || sourceGroupId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -482,10 +487,23 @@ export default function NewCosting() {
           >
             Whole carcass
           </button>
+          <button
+            type="button"
+            onClick={() => setMode('manufactured')}
+            className={
+              mode === 'manufactured'
+                ? 'rounded-md bg-brand-800 px-4 py-2 text-sm font-semibold text-white'
+                : 'rounded-md px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100'
+            }
+          >
+            Manufactured product
+          </button>
         </div>
       )}
 
-      {mode === 'carcass' ? (
+      {mode === 'manufactured' ? (
+        <ManufacturedProductForm />
+      ) : mode === 'carcass' ? (
         <form onSubmit={handleCarcassSubmit} className="space-y-6">
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h1 className="text-lg font-semibold text-slate-900">
@@ -800,65 +818,6 @@ export default function NewCosting() {
   );
 }
 
-function Field({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
-  return (
-    <label className={`block text-sm font-medium text-slate-700 ${className}`}>
-      {label}
-      <div className="mt-1">{children}</div>
-    </label>
-  );
-}
-
-function NumberInput({
-  value,
-  onChange,
-  step = 0.01,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  step?: number;
-}) {
-  return (
-    <input
-      type="number"
-      inputMode="decimal"
-      step={step}
-      min="0"
-      required
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={inputClasses}
-    />
-  );
-}
-
-function CompactField({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="block text-xs font-medium text-slate-500">
-      {label}
-      <div className="mt-0.5">{children}</div>
-    </label>
-  );
-}
-
-const compactInputClasses =
-  'w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600';
-
-function CompactNumberInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <input
-      type="number"
-      inputMode="decimal"
-      step="0.01"
-      min="0"
-      required
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={compactInputClasses}
-    />
-  );
-}
-
 function TrimGroupsEditor({
   groups,
   onUpdate,
@@ -900,7 +859,7 @@ function TrimGroupsEditor({
             <input
               type="number"
               inputMode="decimal"
-              step="0.01"
+              step="any"
               min="0"
               required
               value={g.weightKg}
@@ -911,7 +870,7 @@ function TrimGroupsEditor({
             <input
               type="number"
               inputMode="decimal"
-              step="0.01"
+              step="any"
               min="0"
               required
               value={g.valuePerKg}
@@ -931,28 +890,6 @@ function TrimGroupsEditor({
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function Result({
-  label,
-  value,
-  sub,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-      <div>
-        <p className="text-sm text-slate-600">{label}</p>
-        {sub && <p className="text-xs text-slate-400">{sub}</p>}
-      </div>
-      <p className={`text-base font-semibold ${highlight ? 'text-brand-800' : 'text-slate-900'}`}>{value}</p>
     </div>
   );
 }

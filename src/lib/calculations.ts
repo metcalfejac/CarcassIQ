@@ -186,3 +186,78 @@ export function summarizeCarcass(
     },
   };
 }
+
+/**
+ * A manufactured product costing (burgers, sausages, pies, ready meals):
+ * batch cost is built up from ingredients, then optionally split across a
+ * number of finished units.
+ */
+export interface ManufacturedIngredient {
+  weightKg: number;
+  costPerKg: number;
+}
+
+export type SellingMethod = 'per_kg' | 'per_unit';
+
+export interface ManufacturedProductInputs {
+  ingredients: ManufacturedIngredient[];
+  sellingMethod: SellingMethod;
+  /** £/kg if sellingMethod is 'per_kg', £/unit if 'per_unit'. */
+  sellingPrice: number;
+  /** User-entered expected weight per finished unit (e.g. one burger). */
+  unitWeightKg: number;
+  /** User-entered actual yield, if known — takes precedence over a weight-derived estimate. */
+  unitsProducedActual: number;
+}
+
+export interface ManufacturedProductResults {
+  totalWeightKg: number;
+  totalBatchCost: number;
+  costPerKg: number;
+  /** Whole number — either the actual yield entered, or an estimate rounded
+   *  to the nearest whole unit (you can't sell part of a burger). Null if
+   *  neither a unit weight nor an actual count was given. */
+  unitsProduced: number | null;
+  unitWeightKg: number | null;
+  costPerUnit: number | null;
+  revenue: number;
+  grossProfit: number;
+  grossMarginPct: number;
+}
+
+export function calculateManufacturedProduct(inputs: ManufacturedProductInputs): ManufacturedProductResults {
+  const { ingredients, sellingMethod, sellingPrice, unitWeightKg, unitsProducedActual } = inputs;
+
+  const totalWeightKg = ingredients.reduce((sum, i) => sum + i.weightKg, 0);
+  const totalBatchCost = ingredients.reduce((sum, i) => sum + i.weightKg * i.costPerKg, 0);
+  const costPerKg = totalWeightKg > 0 ? totalBatchCost / totalWeightKg : 0;
+
+  let unitsProduced: number | null = null;
+  let resolvedUnitWeightKg: number | null = null;
+
+  if (unitsProducedActual > 0) {
+    unitsProduced = unitsProducedActual;
+    resolvedUnitWeightKg = unitWeightKg > 0 ? unitWeightKg : totalWeightKg / unitsProducedActual;
+  } else if (unitWeightKg > 0 && totalWeightKg > 0) {
+    unitsProduced = Math.round(totalWeightKg / unitWeightKg);
+    resolvedUnitWeightKg = unitWeightKg;
+  }
+
+  const costPerUnit = unitsProduced && unitsProduced > 0 ? totalBatchCost / unitsProduced : null;
+
+  const revenue = sellingMethod === 'per_kg' ? totalWeightKg * sellingPrice : (unitsProduced ?? 0) * sellingPrice;
+  const grossProfit = revenue - totalBatchCost;
+  const grossMarginPct = revenue > 0 ? grossProfit / revenue : 0;
+
+  return {
+    totalWeightKg,
+    totalBatchCost,
+    costPerKg,
+    unitsProduced,
+    unitWeightKg: resolvedUnitWeightKg,
+    costPerUnit,
+    revenue,
+    grossProfit,
+    grossMarginPct,
+  };
+}

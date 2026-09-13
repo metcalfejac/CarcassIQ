@@ -32,3 +32,24 @@ export interface CostingRecord {
   carcass_product_name: string | null;
   carcass_deadweight_kg: number | null;
 }
+
+export interface ManufacturedIngredientRecord {
+  name: string;
+  weight_kg: number;
+  cost_per_kg: number;
+}
+
+export interface ManufacturedProductRecord {
+  id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  product_name: string;
+  selling_method: 'per_kg' | 'per_unit';
+  selling_price: number;
+  ingredients: ManufacturedIngredientRecord[];
+  /** Weight per finished unit, if known/entered. */
+  unit_weight_kg: number | null;
+  /** Actual yield, if known/entered (takes precedence over an estimate). */
+  units_produced: number | null;
+}

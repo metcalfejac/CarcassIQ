@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import type { CostingRecord } from '../lib/types';
-import { calculateCosting } from '../lib/calculations';
+import type { CostingRecord, ManufacturedProductRecord } from '../lib/types';
+import { calculateCosting, calculateManufacturedProduct } from '../lib/calculations';
 import { formatGBP, formatPct } from '../lib/format';
 
 interface GroupInfo {
@@ -24,7 +24,9 @@ interface DisplayItem {
 
 export default function SavedCostings() {
   const navigate = useNavigate();
+  const [tab, setTab] = useState<'costings' | 'manufactured'>('costings');
   const [costings, setCostings] = useState<CostingRecord[]>([]);
+  const [manufactured, setManufactured] = useState<ManufacturedProductRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -35,15 +37,20 @@ export default function SavedCostings() {
 
   async function load() {
     setLoading(true);
-    const { data, error: fetchError } = await supabase
-      .from('costings')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const [costingsResult, manufacturedResult] = await Promise.all([
+      supabase.from('costings').select('*').order('created_at', { ascending: false }),
+      supabase.from('manufactured_products').select('*').order('created_at', { ascending: false }),
+    ]);
 
-    if (fetchError) {
-      setError(fetchError.message);
+    if (costingsResult.error) {
+      setError(costingsResult.error.message);
     } else {
-      setCostings(data ?? []);
+      setCostings(costingsResult.data ?? []);
+    }
+    if (manufacturedResult.error) {
+      setError((prev) => prev ?? manufacturedResult.error!.message);
+    } else {
+      setManufactured(manufacturedResult.data ?? []);
     }
     setLoading(false);
   }
@@ -108,6 +115,18 @@ export default function SavedCostings() {
     setCostings((prev) => prev.filter((c) => c.carcass_group_id !== groupId));
   }
 
+  async function handleDeleteManufactured(id: string) {
+    if (!confirm('Delete this manufactured product? This cannot be undone.')) return;
+    setBusyKey(id);
+    const { error: deleteError } = await supabase.from('manufactured_products').delete().eq('id', id);
+    setBusyKey(null);
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+    setManufactured((prev) => prev.filter((m) => m.id !== id));
+  }
+
   if (loading) return <p className="text-slate-500">Loading...</p>;
 
   return (
@@ -122,18 +141,88 @@ export default function SavedCostings() {
         </Link>
       </div>
 
+      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setTab('costings')}
+          className={
+            tab === 'costings'
+              ? 'rounded-md bg-brand-800 px-4 py-2 text-sm font-semibold text-white'
+              : 'rounded-md px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100'
+          }
+        >
+          Costings
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('manufactured')}
+          className={
+            tab === 'manufactured'
+              ? 'rounded-md bg-brand-800 px-4 py-2 text-sm font-semibold text-white'
+              : 'rounded-md px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100'
+          }
+        >
+          Manufactured products
+        </button>
+      </div>
+
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {displayItems.length === 0 ? (
+      {tab === 'costings' ? (
+        displayItems.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+            No costings saved yet. Create your first one to get started.
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  {['Date', 'Product', 'Supplier', 'Price/kg', 'Yield', 'Usable cost/kg', 'Selling price/kg', 'Margin', ''].map(
+                    (h) => (
+                      <th key={h} className="whitespace-nowrap px-4 py-3 text-left font-medium text-slate-500">
+                        {h}
+                      </th>
+                    )
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {displayItems.map((item) =>
+                  item.single ? (
+                    <SingleRow
+                      key={item.key}
+                      costing={item.single}
+                      busy={busyKey === item.single.id}
+                      onOpen={() => navigate(`/new?id=${item.single!.id}`)}
+                      onDuplicate={() => navigate(`/new?duplicate=${item.single!.id}`)}
+                      onDelete={() => handleDeleteSingle(item.single!.id)}
+                    />
+                  ) : (
+                    <GroupRows
+                      key={item.key}
+                      group={item.group!}
+                      busy={busyKey === item.group!.groupId}
+                      onOpen={() => navigate(`/new?carcassGroup=${item.group!.groupId}`)}
+                      onDuplicate={() => navigate(`/new?duplicateCarcassGroup=${item.group!.groupId}`)}
+                      onDelete={() => handleDeleteGroup(item.group!.groupId)}
+                    />
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+        )
+      ) : manufactured.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-          No costings saved yet. Create your first one to get started.
+          No manufactured products saved yet. Create your first one to get started.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50">
               <tr>
-                {['Date', 'Product', 'Supplier', 'Price/kg', 'Yield', 'Usable cost/kg', 'Selling price/kg', 'Margin', ''].map(
+                {['Date', 'Product', 'Selling method', 'Cost/kg', 'Units', 'Cost/unit', 'Selling price', 'Margin', ''].map(
                   (h) => (
                     <th key={h} className="whitespace-nowrap px-4 py-3 text-left font-medium text-slate-500">
                       {h}
@@ -143,27 +232,16 @@ export default function SavedCostings() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {displayItems.map((item) =>
-                item.single ? (
-                  <SingleRow
-                    key={item.key}
-                    costing={item.single}
-                    busy={busyKey === item.single.id}
-                    onOpen={() => navigate(`/new?id=${item.single!.id}`)}
-                    onDuplicate={() => navigate(`/new?duplicate=${item.single!.id}`)}
-                    onDelete={() => handleDeleteSingle(item.single!.id)}
-                  />
-                ) : (
-                  <GroupRows
-                    key={item.key}
-                    group={item.group!}
-                    busy={busyKey === item.group!.groupId}
-                    onOpen={() => navigate(`/new?carcassGroup=${item.group!.groupId}`)}
-                    onDuplicate={() => navigate(`/new?duplicateCarcassGroup=${item.group!.groupId}`)}
-                    onDelete={() => handleDeleteGroup(item.group!.groupId)}
-                  />
-                )
-              )}
+              {manufactured.map((m) => (
+                <ManufacturedRow
+                  key={m.id}
+                  product={m}
+                  busy={busyKey === m.id}
+                  onOpen={() => navigate(`/new?manufactured=${m.id}`)}
+                  onDuplicate={() => navigate(`/new?duplicateManufactured=${m.id}`)}
+                  onDelete={() => handleDeleteManufactured(m.id)}
+                />
+              ))}
             </tbody>
           </table>
         </div>
@@ -303,5 +381,60 @@ function GroupRows({
         );
       })}
     </>
+  );
+}
+
+function ManufacturedRow({
+  product,
+  busy,
+  onOpen,
+  onDuplicate,
+  onDelete,
+}: {
+  product: ManufacturedProductRecord;
+  busy: boolean;
+  onOpen: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+}) {
+  const r = calculateManufacturedProduct({
+    ingredients: product.ingredients.map((i) => ({ weightKg: i.weight_kg, costPerKg: i.cost_per_kg })),
+    sellingMethod: product.selling_method,
+    sellingPrice: product.selling_price,
+    unitWeightKg: product.unit_weight_kg ?? 0,
+    unitsProducedActual: product.units_produced ?? 0,
+  });
+
+  return (
+    <tr className="hover:bg-slate-50">
+      <td className="whitespace-nowrap px-4 py-3 text-slate-500">
+        {new Date(product.created_at).toLocaleDateString('en-GB')}
+      </td>
+      <td className="px-4 py-3 font-medium text-slate-900">{product.product_name}</td>
+      <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+        {product.selling_method === 'per_kg' ? 'Per kg' : 'Per unit'}
+      </td>
+      <td className="whitespace-nowrap px-4 py-3 text-slate-600">{formatGBP(r.costPerKg)}</td>
+      <td className="whitespace-nowrap px-4 py-3 text-slate-600">{r.unitsProduced ?? '—'}</td>
+      <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+        {r.costPerUnit !== null ? formatGBP(r.costPerUnit) : '—'}
+      </td>
+      <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+        {formatGBP(product.selling_price)}
+        {product.selling_method === 'per_kg' ? '/kg' : '/unit'}
+      </td>
+      <td className="whitespace-nowrap px-4 py-3 text-slate-600">{formatPct(r.grossMarginPct)}</td>
+      <td className="whitespace-nowrap px-4 py-3 text-right">
+        <button onClick={onOpen} className="mr-3 text-brand-700 hover:underline">
+          Open
+        </button>
+        <button onClick={onDuplicate} className="mr-3 text-slate-500 hover:underline">
+          Duplicate
+        </button>
+        <button onClick={onDelete} disabled={busy} className="text-red-600 hover:underline disabled:opacity-50">
+          Delete
+        </button>
+      </td>
+    </tr>
   );
 }
