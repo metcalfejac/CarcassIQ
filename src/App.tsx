@@ -1,11 +1,13 @@
 import { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { useSubscription } from './lib/useSubscription';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import NewCosting from './pages/NewCosting';
 import SavedCostings from './pages/SavedCostings';
 import Suppliers from './pages/Suppliers';
+import Billing from './pages/Billing';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
@@ -25,6 +27,28 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function RequireSubscription({ children }: { children: ReactNode }) {
+  const { hasAccess, loading } = useSubscription();
+
+  // The billing API routes only exist on Vercel, not the local Vite dev
+  // server, so the trial/subscription gate can't function locally — skip it
+  // in dev builds only. import.meta.env.DEV is fixed at build time, so this
+  // never affects production.
+  if (import.meta.env.DEV) {
+    return <>{children}</>;
+  }
+
+  if (loading) {
+    return <p className="text-slate-500">Loading...</p>;
+  }
+
+  if (!hasAccess) {
+    return <Navigate to="/billing" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -38,9 +62,31 @@ function AppRoutes() {
         }
       >
         <Route index element={<Navigate to="/new" replace />} />
-        <Route path="new" element={<NewCosting />} />
-        <Route path="saved" element={<SavedCostings />} />
-        <Route path="suppliers" element={<Suppliers />} />
+        <Route
+          path="new"
+          element={
+            <RequireSubscription>
+              <NewCosting />
+            </RequireSubscription>
+          }
+        />
+        <Route
+          path="saved"
+          element={
+            <RequireSubscription>
+              <SavedCostings />
+            </RequireSubscription>
+          }
+        />
+        <Route
+          path="suppliers"
+          element={
+            <RequireSubscription>
+              <Suppliers />
+            </RequireSubscription>
+          }
+        />
+        <Route path="billing" element={<Billing />} />
         <Route path="*" element={<Navigate to="/new" replace />} />
       </Route>
     </Routes>

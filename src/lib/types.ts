@@ -55,3 +55,15 @@ export interface ManufacturedProductRecord {
   /** Fraction, e.g. 0.30 for 30% */
   target_margin_pct: number;
 }
+
+export type SubscriptionStatus = 'none' | 'trialing' | 'active' | 'past_due' | 'canceled';
+
+export interface SubscriptionRecord {
+  user_id: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  status: SubscriptionStatus;
+  price_id: string | null;
+  current_period_end: string | null;
+  trial_end: string | null;
+}

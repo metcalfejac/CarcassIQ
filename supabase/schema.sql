@@ -112,3 +112,46 @@ create trigger manufactured_products_set_updated_at
   before update on public.manufactured_products
   for each row
   execute function public.set_updated_at();
+
+-- Billing: one row per user. Only ever written by the service-role key from
+-- the serverless functions (api/start-trial, api/create-checkout-session,
+-- api/stripe-webhook) — regular clients can only read their own row.
+create table if not exists public.subscriptions (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  -- none | trialing | active | past_due | canceled
+  status text not null default 'none',
+  price_id text,
+  current_period_end timestamptz,
+  trial_end timestamptz,
+  signup_ip text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.subscriptions enable row level security;
+
+create policy "Users can view their own subscription"
+  on public.subscriptions for select
+  using (auth.uid() = user_id);
+
+drop trigger if exists subscriptions_set_updated_at on public.subscriptions;
+create trigger subscriptions_set_updated_at
+  before update on public.subscriptions
+  for each row
+  execute function public.set_updated_at();
+
+-- Every trial-start attempt, keyed by IP, so api/start-trial can throttle
+-- repeat signups from the same connection. Service-role only — no client
+-- policies at all.
+create table if not exists public.trial_signups (
+  id uuid primary key default gen_random_uuid(),
+  ip text not null,
+  email text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists trial_signups_ip_idx on public.trial_signups (ip);
+
+alter table public.trial_signups enable row level security;

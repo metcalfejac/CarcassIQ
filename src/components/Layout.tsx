@@ -5,6 +5,7 @@ const navItems = [
   { to: '/new', label: 'New Costing' },
   { to: '/saved', label: 'Saved Costings' },
   { to: '/suppliers', label: 'Suppliers' },
+  { to: '/billing', label: 'Billing' },
 ];
 
 export default function Layout() {
