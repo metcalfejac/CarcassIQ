@@ -62,6 +62,40 @@ export function calculateCosting(inputs: CostingInputs): CostingResults {
   };
 }
 
+/**
+ * Trim recovered often gets split across different uses at different
+ * values/kg (e.g. some to diced beef, some to mince). Groups are summed into
+ * a single weight and a value/kg blended by weight, which plugs straight
+ * into calculateCosting's trimWeightKg/trimValuePerKg unchanged: since
+ * trimRecoveryValue = trimWeightKg × trimValuePerKg, using the weighted
+ * average value/kg here reproduces the same total recovery value as summing
+ * each group's own weight × value.
+ */
+export interface TrimGroup {
+  weightKg: number;
+  valuePerKg: number;
+}
+
+export interface TrimGroupsSummary {
+  totalWeightKg: number;
+  totalRecoveryValue: number;
+  blendedValuePerKg: number;
+}
+
+export function aggregateTrimGroups(groups: TrimGroup[]): TrimGroupsSummary {
+  let totalWeightKg = 0;
+  let totalRecoveryValue = 0;
+  for (const g of groups) {
+    totalWeightKg += g.weightKg;
+    totalRecoveryValue += g.weightKg * g.valuePerKg;
+  }
+  return {
+    totalWeightKg,
+    totalRecoveryValue,
+    blendedValuePerKg: totalWeightKg > 0 ? totalRecoveryValue / totalWeightKg : 0,
+  };
+}
+
 export type MarginStatus = 'above' | 'close' | 'below';
 
 const CLOSE_THRESHOLD = 0.02;

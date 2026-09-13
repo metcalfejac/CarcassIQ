@@ -2,8 +2,10 @@ import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
-import { calculateCosting, getMarginStatus, summarizeCarcass } from '../lib/calculations';
+import { aggregateTrimGroups, calculateCosting, getMarginStatus, summarizeCarcass } from '../lib/calculations';
+import type { TrimGroup } from '../lib/calculations';
 import { formatGBP, formatPct, formatKg } from '../lib/format';
+import type { TrimGroupRecord } from '../lib/types';
 import MarginBadge from '../components/MarginBadge';
 
 interface FormState {
@@ -12,8 +14,6 @@ interface FormState {
   purchaseWeightKg: string;
   purchasePricePerKg: string;
   saleableWeightKg: string;
-  trimWeightKg: string;
-  trimValuePerKg: string;
   wasteWeightKg: string;
   sellingPricePerKg: string;
   /** Whole percent, e.g. "30" */
@@ -26,12 +26,51 @@ const emptyForm: FormState = {
   purchaseWeightKg: '',
   purchasePricePerKg: '',
   saleableWeightKg: '',
-  trimWeightKg: '',
-  trimValuePerKg: '',
   wasteWeightKg: '',
   sellingPricePerKg: '',
   targetMarginPct: '30',
 };
+
+interface TrimGroupFormState {
+  key: string;
+  label: string;
+  weightKg: string;
+  valuePerKg: string;
+}
+
+function newTrimGroup(): TrimGroupFormState {
+  return { key: crypto.randomUUID(), label: '', weightKg: '', valuePerKg: '' };
+}
+
+function trimGroupsToNumeric(groups: TrimGroupFormState[]): TrimGroup[] {
+  return groups.map((g) => ({ weightKg: num(g.weightKg), valuePerKg: num(g.valuePerKg) }));
+}
+
+/** Rebuilds the editable trim breakdown from a saved row: uses the stored
+ *  groups if present, or falls back to a single group derived from the
+ *  aggregate fields (for rows saved before this feature existed). */
+function trimGroupsFromRecord(row: {
+  trim_groups: TrimGroupRecord[] | null;
+  trim_weight_kg: number;
+  trim_value_per_kg: number;
+}): TrimGroupFormState[] {
+  if (row.trim_groups && row.trim_groups.length > 0) {
+    return row.trim_groups.map((g) => ({
+      key: crypto.randomUUID(),
+      label: g.label ?? '',
+      weightKg: String(g.weight_kg ?? ''),
+      valuePerKg: String(g.value_per_kg ?? ''),
+    }));
+  }
+  return [
+    {
+      key: crypto.randomUUID(),
+      label: '',
+      weightKg: String(row.trim_weight_kg ?? ''),
+      valuePerKg: String(row.trim_value_per_kg ?? ''),
+    },
+  ];
+}
 
 interface CarcassMetaState {
   carcassName: string;
@@ -54,8 +93,7 @@ interface CutFormState {
   dbId?: string;
   cutName: string;
   saleableWeightKg: string;
-  trimWeightKg: string;
-  trimValuePerKg: string;
+  trimGroups: TrimGroupFormState[];
   wasteWeightKg: string;
   sellingPricePerKg: string;
 }
@@ -65,8 +103,7 @@ function newCut(): CutFormState {
     key: crypto.randomUUID(),
     cutName: '',
     saleableWeightKg: '',
-    trimWeightKg: '',
-    trimValuePerKg: '',
+    trimGroups: [newTrimGroup()],
     wasteWeightKg: '',
     sellingPricePerKg: '',
   };
@@ -102,6 +139,7 @@ export default function NewCosting() {
 
   // --- Single product state ---
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [trimGroups, setTrimGroups] = useState<TrimGroupFormState[]>([newTrimGroup()]);
 
   useEffect(() => {
     if (!sourceId) return;
@@ -121,16 +159,17 @@ export default function NewCosting() {
             purchaseWeightKg: String(data.purchase_weight_kg ?? ''),
             purchasePricePerKg: String(data.purchase_price_per_kg ?? ''),
             saleableWeightKg: String(data.saleable_weight_kg ?? ''),
-            trimWeightKg: String(data.trim_weight_kg ?? ''),
-            trimValuePerKg: String(data.trim_value_per_kg ?? ''),
             wasteWeightKg: String(data.waste_weight_kg ?? ''),
             sellingPricePerKg: String(data.selling_price_per_kg ?? ''),
             targetMarginPct: String((data.target_margin_pct ?? 0) * 100),
           });
+          setTrimGroups(trimGroupsFromRecord(data));
         }
         setLoadingSource(false);
       });
   }, [sourceId]);
+
+  const trimSummary = useMemo(() => aggregateTrimGroups(trimGroupsToNumeric(trimGroups)), [trimGroups]);
 
   const results = useMemo(
     () =>
@@ -138,13 +177,13 @@ export default function NewCosting() {
         purchaseWeightKg: num(form.purchaseWeightKg),
         purchasePricePerKg: num(form.purchasePricePerKg),
         saleableWeightKg: num(form.saleableWeightKg),
-        trimWeightKg: num(form.trimWeightKg),
-        trimValuePerKg: num(form.trimValuePerKg),
+        trimWeightKg: trimSummary.totalWeightKg,
+        trimValuePerKg: trimSummary.blendedValuePerKg,
         wasteWeightKg: num(form.wasteWeightKg),
         sellingPricePerKg: num(form.sellingPricePerKg),
         targetMarginPct: num(form.targetMarginPct) / 100,
       }),
-    [form]
+    [form, trimSummary]
   );
 
   const marginStatus = getMarginStatus(results.grossMarginPct, num(form.targetMarginPct) / 100);
@@ -152,6 +191,18 @@ export default function NewCosting() {
 
   function update<K extends keyof FormState>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function updateTrimGroup(key: string, field: 'label' | 'weightKg' | 'valuePerKg', value: string) {
+    setTrimGroups((prev) => prev.map((g) => (g.key === key ? { ...g, [field]: value } : g)));
+  }
+
+  function addTrimGroup() {
+    setTrimGroups((prev) => [...prev, newTrimGroup()]);
+  }
+
+  function removeTrimGroup(key: string) {
+    setTrimGroups((prev) => (prev.length <= 1 ? prev : prev.filter((g) => g.key !== key)));
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -167,8 +218,13 @@ export default function NewCosting() {
       purchase_weight_kg: num(form.purchaseWeightKg),
       purchase_price_per_kg: num(form.purchasePricePerKg),
       saleable_weight_kg: num(form.saleableWeightKg),
-      trim_weight_kg: num(form.trimWeightKg),
-      trim_value_per_kg: num(form.trimValuePerKg),
+      trim_weight_kg: trimSummary.totalWeightKg,
+      trim_value_per_kg: trimSummary.blendedValuePerKg,
+      trim_groups: trimGroups.map((g) => ({
+        label: g.label,
+        weight_kg: num(g.weightKg),
+        value_per_kg: num(g.valuePerKg),
+      })),
       waste_weight_kg: num(form.wasteWeightKg),
       selling_price_per_kg: num(form.sellingPricePerKg),
       target_margin_pct: num(form.targetMarginPct) / 100,
@@ -225,8 +281,7 @@ export default function NewCosting() {
               dbId: isEditing ? row.id : undefined,
               cutName: row.product_name ?? '',
               saleableWeightKg: String(row.saleable_weight_kg ?? ''),
-              trimWeightKg: String(row.trim_weight_kg ?? ''),
-              trimValuePerKg: String(row.trim_value_per_kg ?? ''),
+              trimGroups: trimGroupsFromRecord(row),
               wasteWeightKg: String(row.waste_weight_kg ?? ''),
               sellingPricePerKg: String(row.selling_price_per_kg ?? ''),
             }))
@@ -245,14 +300,19 @@ export default function NewCosting() {
   const carcassPricePerKg = num(carcassMeta.pricePerKg);
   const targetMarginFraction = num(carcassMeta.targetMarginPct) / 100;
 
+  const cutTrimSummaries = useMemo(
+    () => cuts.map((c) => aggregateTrimGroups(trimGroupsToNumeric(c.trimGroups))),
+    [cuts]
+  );
+
   const carcassResults = useMemo(
     () =>
       summarizeCarcass(
-        cuts.map((c) => ({
+        cuts.map((c, i) => ({
           cutName: c.cutName,
           saleableWeightKg: num(c.saleableWeightKg),
-          trimWeightKg: num(c.trimWeightKg),
-          trimValuePerKg: num(c.trimValuePerKg),
+          trimWeightKg: cutTrimSummaries[i].totalWeightKg,
+          trimValuePerKg: cutTrimSummaries[i].blendedValuePerKg,
           wasteWeightKg: num(c.wasteWeightKg),
           sellingPricePerKg: num(c.sellingPricePerKg),
         })),
@@ -260,7 +320,7 @@ export default function NewCosting() {
         carcassPricePerKg,
         targetMarginFraction
       ),
-    [cuts, deadweightKg, carcassPricePerKg, targetMarginFraction]
+    [cuts, cutTrimSummaries, deadweightKg, carcassPricePerKg, targetMarginFraction]
   );
 
   function updateCarcassMeta<K extends keyof CarcassMetaState>(key: K, value: string) {
@@ -279,6 +339,35 @@ export default function NewCosting() {
     setCuts((prev) => (prev.length <= 1 ? prev : prev.filter((c) => c.key !== key)));
   }
 
+  function updateCutTrimGroup(cutKey: string, trimKey: string, field: 'label' | 'weightKg' | 'valuePerKg', value: string) {
+    setCuts((prev) =>
+      prev.map((c) =>
+        c.key === cutKey
+          ? { ...c, trimGroups: c.trimGroups.map((g) => (g.key === trimKey ? { ...g, [field]: value } : g)) }
+          : c
+      )
+    );
+  }
+
+  function addCutTrimGroup(cutKey: string) {
+    setCuts((prev) =>
+      prev.map((c) => (c.key === cutKey ? { ...c, trimGroups: [...c.trimGroups, newTrimGroup()] } : c))
+    );
+  }
+
+  function removeCutTrimGroup(cutKey: string, trimKey: string) {
+    setCuts((prev) =>
+      prev.map((c) =>
+        c.key === cutKey
+          ? {
+              ...c,
+              trimGroups: c.trimGroups.length <= 1 ? c.trimGroups : c.trimGroups.filter((g) => g.key !== trimKey),
+            }
+          : c
+      )
+    );
+  }
+
   async function handleCarcassSubmit(e: FormEvent) {
     e.preventDefault();
     if (!session) return;
@@ -289,7 +378,7 @@ export default function NewCosting() {
 
     const rows = cuts.map((cut) => {
       const saleable = num(cut.saleableWeightKg);
-      const trim = num(cut.trimWeightKg);
+      const trimAgg = aggregateTrimGroups(trimGroupsToNumeric(cut.trimGroups));
       const waste = num(cut.wasteWeightKg);
       return {
         dbId: cut.dbId,
@@ -297,11 +386,16 @@ export default function NewCosting() {
           user_id: session.user.id,
           product_name: cut.cutName,
           supplier: carcassMeta.supplier,
-          purchase_weight_kg: saleable + trim + waste,
+          purchase_weight_kg: saleable + trimAgg.totalWeightKg + waste,
           purchase_price_per_kg: carcassPricePerKg,
           saleable_weight_kg: saleable,
-          trim_weight_kg: trim,
-          trim_value_per_kg: num(cut.trimValuePerKg),
+          trim_weight_kg: trimAgg.totalWeightKg,
+          trim_value_per_kg: trimAgg.blendedValuePerKg,
+          trim_groups: cut.trimGroups.map((g) => ({
+            label: g.label,
+            weight_kg: num(g.weightKg),
+            value_per_kg: num(g.valuePerKg),
+          })),
           waste_weight_kg: waste,
           selling_price_per_kg: num(cut.sellingPricePerKg),
           target_margin_pct: targetMarginFraction,
@@ -476,7 +570,7 @@ export default function NewCosting() {
                     </button>
                   </div>
 
-                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
                     <CompactField label="Saleable wt (kg)">
                       <CompactNumberInput
                         value={cut.saleableWeightKg}
@@ -489,24 +583,22 @@ export default function NewCosting() {
                         onChange={(v) => updateCut(cut.key, 'sellingPricePerKg', v)}
                       />
                     </CompactField>
-                    <CompactField label="Trim wt (kg)">
-                      <CompactNumberInput
-                        value={cut.trimWeightKg}
-                        onChange={(v) => updateCut(cut.key, 'trimWeightKg', v)}
-                      />
-                    </CompactField>
-                    <CompactField label="Trim £/kg">
-                      <CompactNumberInput
-                        value={cut.trimValuePerKg}
-                        onChange={(v) => updateCut(cut.key, 'trimValuePerKg', v)}
-                      />
-                    </CompactField>
                     <CompactField label="Waste/Drip (kg)">
                       <CompactNumberInput
                         value={cut.wasteWeightKg}
                         onChange={(v) => updateCut(cut.key, 'wasteWeightKg', v)}
                       />
                     </CompactField>
+                  </div>
+
+                  <div className="mt-2">
+                    <TrimGroupsEditor
+                      groups={cut.trimGroups}
+                      onUpdate={(trimKey, field, value) => updateCutTrimGroup(cut.key, trimKey, field, value)}
+                      onAdd={() => addCutTrimGroup(cut.key)}
+                      onRemove={(trimKey) => removeCutTrimGroup(cut.key, trimKey)}
+                      compact
+                    />
                   </div>
 
                   {cutHasInput && (
@@ -595,16 +687,18 @@ export default function NewCosting() {
               <Field label="Saleable meat weight (kg)">
                 <NumberInput value={form.saleableWeightKg} onChange={(v) => update('saleableWeightKg', v)} />
               </Field>
-              <Field label="Recoverable trim weight (kg)">
-                <NumberInput value={form.trimWeightKg} onChange={(v) => update('trimWeightKg', v)} />
-              </Field>
-
-              <Field label="Trim value (£/kg)">
-                <NumberInput value={form.trimValuePerKg} onChange={(v) => update('trimValuePerKg', v)} />
-              </Field>
               <Field label="Waste/Drip loss (kg)">
                 <NumberInput value={form.wasteWeightKg} onChange={(v) => update('wasteWeightKg', v)} />
               </Field>
+
+              <div className="col-span-2">
+                <TrimGroupsEditor
+                  groups={trimGroups}
+                  onUpdate={updateTrimGroup}
+                  onAdd={addTrimGroup}
+                  onRemove={removeTrimGroup}
+                />
+              </div>
 
               <Field label="Current selling price (£/kg)">
                 <NumberInput value={form.sellingPricePerKg} onChange={(v) => update('sellingPricePerKg', v)} />
@@ -667,7 +761,7 @@ export default function NewCosting() {
             {hasEnoughInput && (
               <div className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500 shadow-sm">
                 Purchase {formatKg(num(form.purchaseWeightKg))} → saleable {formatKg(num(form.saleableWeightKg))}, trim{' '}
-                {formatKg(num(form.trimWeightKg))}, waste {formatKg(num(form.wasteWeightKg))}
+                {formatKg(trimSummary.totalWeightKg)}, waste {formatKg(num(form.wasteWeightKg))}
               </div>
             )}
           </div>
@@ -733,6 +827,82 @@ function CompactNumberInput({ value, onChange }: { value: string; onChange: (v: 
       onChange={(e) => onChange(e.target.value)}
       className={compactInputClasses}
     />
+  );
+}
+
+function TrimGroupsEditor({
+  groups,
+  onUpdate,
+  onAdd,
+  onRemove,
+  compact = false,
+}: {
+  groups: TrimGroupFormState[];
+  onUpdate: (key: string, field: 'label' | 'weightKg' | 'valuePerKg', value: string) => void;
+  onAdd: () => void;
+  onRemove: (key: string) => void;
+  compact?: boolean;
+}) {
+  const cellClasses = compact ? compactInputClasses : inputClasses;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <span className={compact ? 'text-xs font-medium text-slate-500' : 'text-sm font-medium text-slate-700'}>
+          Trim recovered
+        </span>
+        <button
+          type="button"
+          onClick={onAdd}
+          className={`font-medium text-brand-800 hover:underline ${compact ? 'text-xs' : 'text-sm'}`}
+        >
+          + Add trim group
+        </button>
+      </div>
+      <div className="mt-1 space-y-1.5">
+        {groups.map((g) => (
+          <div key={g.key} className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto] gap-1.5">
+            <input
+              value={g.label}
+              onChange={(e) => onUpdate(g.key, 'label', e.target.value)}
+              placeholder={compact ? 'Trim type' : 'e.g. Diced beef'}
+              className={cellClasses}
+            />
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              required
+              value={g.weightKg}
+              onChange={(e) => onUpdate(g.key, 'weightKg', e.target.value)}
+              placeholder="Weight kg"
+              className={cellClasses}
+            />
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              required
+              value={g.valuePerKg}
+              onChange={(e) => onUpdate(g.key, 'valuePerKg', e.target.value)}
+              placeholder="£/kg"
+              className={cellClasses}
+            />
+            <button
+              type="button"
+              onClick={() => onRemove(g.key)}
+              disabled={groups.length <= 1}
+              className="px-1 text-red-600 disabled:opacity-30"
+              aria-label="Remove trim group"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

@@ -1,3 +1,9 @@
+export interface TrimGroupRecord {
+  label: string;
+  weight_kg: number;
+  value_per_kg: number;
+}
+
 export interface CostingRecord {
   id: string;
   user_id: string;
@@ -10,6 +16,10 @@ export interface CostingRecord {
   saleable_weight_kg: number;
   trim_weight_kg: number;
   trim_value_per_kg: number;
+  /** The individual trim breakdown (e.g. diced beef vs mince); trim_weight_kg
+   *  and trim_value_per_kg above are the aggregate of this. Null for rows
+   *  saved before this feature existed. */
+  trim_groups: TrimGroupRecord[] | null;
   waste_weight_kg: number;
   selling_price_per_kg: number;
   /** Fraction, e.g. 0.30 for 30% */
