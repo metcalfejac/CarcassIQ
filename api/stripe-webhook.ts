@@ -50,54 +50,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  try {
+    const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-  async function updateByCustomerId(customerId: string, fields: Record<string, unknown>) {
-    await admin.from('subscriptions').update(fields).eq('stripe_customer_id', customerId);
-  }
+    async function updateByCustomerId(customerId: string, fields: Record<string, unknown>) {
+      await admin.from('subscriptions').update(fields).eq('stripe_customer_id', customerId);
+    }
 
-  switch (event.type) {
-    case 'checkout.session.completed': {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const customerId = session.customer as string | null;
-      const subscriptionId = session.subscription as string | null;
-      if (customerId && subscriptionId) {
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        await updateByCustomerId(customerId, {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const customerId = session.customer as string | null;
+        const subscriptionId = session.subscription as string | null;
+        if (customerId && subscriptionId) {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          await updateByCustomerId(customerId, {
+            stripe_subscription_id: subscription.id,
+            status: subscription.status,
+            price_id: subscription.items.data[0]?.price.id ?? null,
+            current_period_end: currentPeriodEnd(subscription),
+          });
+        }
+        break;
+      }
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        await updateByCustomerId(subscription.customer as string, {
           stripe_subscription_id: subscription.id,
           status: subscription.status,
           price_id: subscription.items.data[0]?.price.id ?? null,
           current_period_end: currentPeriodEnd(subscription),
         });
+        break;
       }
-      break;
-    }
-    case 'customer.subscription.created':
-    case 'customer.subscription.updated': {
-      const subscription = event.data.object as Stripe.Subscription;
-      await updateByCustomerId(subscription.customer as string, {
-        stripe_subscription_id: subscription.id,
-        status: subscription.status,
-        price_id: subscription.items.data[0]?.price.id ?? null,
-        current_period_end: currentPeriodEnd(subscription),
-      });
-      break;
-    }
-    case 'customer.subscription.deleted': {
-      const subscription = event.data.object as Stripe.Subscription;
-      await updateByCustomerId(subscription.customer as string, { status: 'canceled' });
-      break;
-    }
-    case 'invoice.payment_failed': {
-      const invoice = event.data.object as Stripe.Invoice;
-      if (invoice.customer) {
-        await updateByCustomerId(invoice.customer as string, { status: 'past_due' });
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        await updateByCustomerId(subscription.customer as string, { status: 'canceled' });
+        break;
       }
-      break;
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice;
+        if (invoice.customer) {
+          await updateByCustomerId(invoice.customer as string, { status: 'past_due' });
+        }
+        break;
+      }
+      default:
+        break;
     }
-    default:
-      break;
-  }
 
-  res.status(200).json({ received: true });
+    res.status(200).json({ received: true });
+  } catch (err) {
+    console.error('stripe-webhook error', err);
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Internal error' });
+  }
 }

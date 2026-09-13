@@ -47,61 +47,66 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  try {
+    const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-  const { data: userData, error: userError } = await admin.auth.getUser(token);
-  if (userError || !userData.user) {
-    res.status(401).json({ error: 'Invalid session' });
-    return;
-  }
-  const user = userData.user;
-
-  const { data: existing } = await admin
-    .from('subscriptions')
-    .select('user_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (existing) {
-    res.status(200).json({ status: 'already_exists' });
-    return;
-  }
-
-  const email = user.email ?? '';
-  const domain = email.split('@')[1]?.toLowerCase() ?? '';
-  const ip = getClientIp(req);
-
-  let eligible = true;
-  let reason: string | null = null;
-
-  if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
-    eligible = false;
-    reason = 'disposable_email';
-  }
-
-  if (eligible && ip !== 'unknown') {
-    const since = new Date(Date.now() - IP_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    const { count } = await admin
-      .from('trial_signups')
-      .select('id', { count: 'exact', head: true })
-      .eq('ip', ip)
-      .gte('created_at', since);
-    if ((count ?? 0) >= MAX_TRIALS_PER_IP) {
-      eligible = false;
-      reason = 'ip_limit';
+    const { data: userData, error: userError } = await admin.auth.getUser(token);
+    if (userError || !userData.user) {
+      res.status(401).json({ error: 'Invalid session' });
+      return;
     }
+    const user = userData.user;
+
+    const { data: existing } = await admin
+      .from('subscriptions')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existing) {
+      res.status(200).json({ status: 'already_exists' });
+      return;
+    }
+
+    const email = user.email ?? '';
+    const domain = email.split('@')[1]?.toLowerCase() ?? '';
+    const ip = getClientIp(req);
+
+    let eligible = true;
+    let reason: string | null = null;
+
+    if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
+      eligible = false;
+      reason = 'disposable_email';
+    }
+
+    if (eligible && ip !== 'unknown') {
+      const since = new Date(Date.now() - IP_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+      const { count } = await admin
+        .from('trial_signups')
+        .select('id', { count: 'exact', head: true })
+        .eq('ip', ip)
+        .gte('created_at', since);
+      if ((count ?? 0) >= MAX_TRIALS_PER_IP) {
+        eligible = false;
+        reason = 'ip_limit';
+      }
+    }
+
+    await admin.from('trial_signups').insert({ ip, email });
+
+    const trialEnd = eligible ? new Date(Date.now() + TRIAL_HOURS * 60 * 60 * 1000).toISOString() : null;
+
+    await admin.from('subscriptions').insert({
+      user_id: user.id,
+      status: eligible ? 'trialing' : 'none',
+      trial_end: trialEnd,
+      signup_ip: ip,
+    });
+
+    res.status(200).json({ status: eligible ? 'trialing' : 'blocked', reason });
+  } catch (err) {
+    console.error('start-trial error', err);
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Internal error' });
   }
-
-  await admin.from('trial_signups').insert({ ip, email });
-
-  const trialEnd = eligible ? new Date(Date.now() + TRIAL_HOURS * 60 * 60 * 1000).toISOString() : null;
-
-  await admin.from('subscriptions').insert({
-    user_id: user.id,
-    status: eligible ? 'trialing' : 'none',
-    trial_end: trialEnd,
-    signup_ip: ip,
-  });
-
-  res.status(200).json({ status: eligible ? 'trialing' : 'blocked', reason });
 }
