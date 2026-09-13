@@ -3,11 +3,14 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useSubscription } from './lib/useSubscription';
 import Layout from './components/Layout';
+import Landing from './pages/Landing';
 import Login from './pages/Login';
 import NewCosting from './pages/NewCosting';
 import SavedCostings from './pages/SavedCostings';
 import Suppliers from './pages/Suppliers';
 import Billing from './pages/Billing';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
@@ -52,7 +55,10 @@ function RequireSubscription({ children }: { children: ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<Privacy />} />
       <Route
         path="/*"
         element={
@@ -61,7 +67,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/new" replace />} />
         <Route
           path="new"
           element={

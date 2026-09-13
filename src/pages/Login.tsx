@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
@@ -84,6 +84,20 @@ export default function Login() {
         >
           {mode === 'signin' ? "Don't have an account? Create one" : 'Already have an account? Sign in'}
         </button>
+
+        {mode === 'signup' && (
+          <p className="mt-4 text-center text-xs text-slate-400">
+            By creating an account, you agree to our{' '}
+            <Link to="/terms" className="underline hover:text-brand-800">
+              Terms
+            </Link>{' '}
+            and{' '}
+            <Link to="/privacy" className="underline hover:text-brand-800">
+              Privacy Policy
+            </Link>
+            .
+          </p>
+        )}
       </div>
     </div>
   );
