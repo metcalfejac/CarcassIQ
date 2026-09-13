@@ -39,6 +39,25 @@ function num(v: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+type WeightUnit = 'kg' | 'lb';
+
+const LB_PER_KG = 2.2046226218;
+
+/** Converts a typed weight value from one display unit to another, so
+ *  toggling kg/lb preserves the physical weight rather than reinterpreting
+ *  the same number under the new unit. */
+function convertWeight(value: string, from: WeightUnit, to: WeightUnit): string {
+  if (from === to || !value.trim()) return value;
+  const n = num(value);
+  const converted = from === 'kg' ? n * LB_PER_KG : n / LB_PER_KG;
+  return String(Math.round(converted * 10000) / 10000);
+}
+
+function toKg(value: string, unit: WeightUnit): number {
+  const n = num(value);
+  return unit === 'lb' ? n / LB_PER_KG : n;
+}
+
 export default function ManufacturedProductForm() {
   const { session } = useAuth();
   const navigate = useNavigate();
@@ -50,6 +69,7 @@ export default function ManufacturedProductForm() {
 
   const [form, setForm] = useState<ManufacturedFormState>(emptyForm);
   const [ingredients, setIngredients] = useState<IngredientFormState[]>([newIngredient()]);
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>('kg');
   const [loadingSource, setLoadingSource] = useState(!!sourceId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,13 +112,13 @@ export default function ManufacturedProductForm() {
   const results = useMemo(
     () =>
       calculateManufacturedProduct({
-        ingredients: ingredients.map((i) => ({ weightKg: num(i.weightKg), costPerKg: num(i.costPerKg) })),
+        ingredients: ingredients.map((i) => ({ weightKg: toKg(i.weightKg, weightUnit), costPerKg: num(i.costPerKg) })),
         sellingMethod: form.sellingMethod,
         sellingPrice: num(form.sellingPrice),
-        unitWeightKg: num(form.unitWeightKg),
+        unitWeightKg: toKg(form.unitWeightKg, weightUnit),
         unitsProducedActual: num(form.unitsProducedActual),
       }),
-    [ingredients, form]
+    [ingredients, form, weightUnit]
   );
 
   const hasIngredientInput = ingredients.some((i) => num(i.weightKg) > 0);
@@ -119,6 +139,13 @@ export default function ManufacturedProductForm() {
     setIngredients((prev) => (prev.length <= 1 ? prev : prev.filter((i) => i.key !== key)));
   }
 
+  function changeWeightUnit(newUnit: WeightUnit) {
+    if (newUnit === weightUnit) return;
+    setIngredients((prev) => prev.map((i) => ({ ...i, weightKg: convertWeight(i.weightKg, weightUnit, newUnit) })));
+    setForm((f) => ({ ...f, unitWeightKg: convertWeight(f.unitWeightKg, weightUnit, newUnit) }));
+    setWeightUnit(newUnit);
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!session) return;
@@ -132,10 +159,10 @@ export default function ManufacturedProductForm() {
       selling_price: num(form.sellingPrice),
       ingredients: ingredients.map((i) => ({
         name: i.name,
-        weight_kg: num(i.weightKg),
+        weight_kg: toKg(i.weightKg, weightUnit),
         cost_per_kg: num(i.costPerKg),
       })),
-      unit_weight_kg: form.unitWeightKg.trim() ? num(form.unitWeightKg) : null,
+      unit_weight_kg: form.unitWeightKg.trim() ? toKg(form.unitWeightKg, weightUnit) : null,
       units_produced: form.unitsProducedActual.trim() ? num(form.unitsProducedActual) : null,
     };
 
@@ -195,8 +222,34 @@ export default function ManufacturedProductForm() {
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">Ingredients</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-slate-900">Ingredients</h2>
+            <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => changeWeightUnit('kg')}
+                className={
+                  weightUnit === 'kg'
+                    ? 'rounded bg-brand-800 px-2 py-1 font-semibold text-white'
+                    : 'rounded px-2 py-1 font-medium text-slate-600 hover:bg-slate-100'
+                }
+              >
+                kg
+              </button>
+              <button
+                type="button"
+                onClick={() => changeWeightUnit('lb')}
+                className={
+                  weightUnit === 'lb'
+                    ? 'rounded bg-brand-800 px-2 py-1 font-semibold text-white'
+                    : 'rounded px-2 py-1 font-medium text-slate-600 hover:bg-slate-100'
+                }
+              >
+                lb
+              </button>
+            </div>
+          </div>
           <button
             type="button"
             onClick={addIngredient}
@@ -209,13 +262,13 @@ export default function ManufacturedProductForm() {
         <div className="mt-4 space-y-2">
           <div className="hidden grid-cols-[1.6fr_1fr_1fr_1fr_auto] gap-2 px-1 text-xs font-medium text-slate-500 sm:grid">
             <span>Ingredient</span>
-            <span>Weight (kg)</span>
+            <span>Weight ({weightUnit})</span>
             <span>Cost (£/kg)</span>
             <span>Ingredient cost</span>
             <span />
           </div>
           {ingredients.map((ing) => {
-            const cost = num(ing.weightKg) * num(ing.costPerKg);
+            const cost = toKg(ing.weightKg, weightUnit) * num(ing.costPerKg);
             return (
               <div
                 key={ing.key}
@@ -254,7 +307,7 @@ export default function ManufacturedProductForm() {
           yield, enter that and it'll be used instead of an estimate.
         </p>
         <div className="mt-4 grid grid-cols-2 gap-4">
-          <Field label="Weight per unit (kg)">
+          <Field label={`Weight per unit (${weightUnit})`}>
             <NumberInput
               value={form.unitWeightKg}
               onChange={(v) => updateForm('unitWeightKg', v)}
