@@ -2,9 +2,11 @@ import { FormEvent, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
+type Mode = 'signin' | 'signup' | 'forgot';
+
 export default function Login() {
-  const { session, signIn, signUp } = useAuth();
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const { session, signIn, signUp, resetPasswordForEmail } = useAuth();
+  const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -15,11 +17,28 @@ export default function Login() {
     return <Navigate to="/new" replace />;
   }
 
+  function switchMode(next: Mode) {
+    setMode(next);
+    setError(null);
+    setInfo(null);
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setInfo(null);
     setSubmitting(true);
+
+    if (mode === 'forgot') {
+      const result = await resetPasswordForEmail(email);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setInfo('Check your email for a link to reset your password.');
+      }
+      setSubmitting(false);
+      return;
+    }
 
     const result = mode === 'signin' ? await signIn(email, password) : await signUp(email, password);
 
@@ -31,13 +50,18 @@ export default function Login() {
     setSubmitting(false);
   }
 
+  const heading =
+    mode === 'signin'
+      ? 'Sign in to your shop account'
+      : mode === 'signup'
+        ? 'Create your shop account'
+        : 'Reset your password';
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
         <h1 className="text-2xl font-bold text-brand-800">CarcassIQ</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          {mode === 'signin' ? 'Sign in to your shop account' : 'Create your shop account'}
-        </p>
+        <p className="mt-1 text-sm text-slate-500">{heading}</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
@@ -50,17 +74,31 @@ export default function Login() {
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Password</label>
-            <input
-              type="password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
-            />
-          </div>
+
+          {mode !== 'forgot' && (
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-slate-700">Password</label>
+                {mode === 'signin' && (
+                  <button
+                    type="button"
+                    onClick={() => switchMode('forgot')}
+                    className="text-xs font-medium text-brand-800 hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+              <input
+                type="password"
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+              />
+            </div>
+          )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
           {info && <p className="text-sm text-emerald-600">{info}</p>}
@@ -70,20 +108,25 @@ export default function Login() {
             disabled={submitting}
             className="w-full rounded-md bg-brand-800 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
           >
-            {mode === 'signin' ? 'Sign in' : 'Create account'}
+            {mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'}
           </button>
         </form>
 
-        <button
-          onClick={() => {
-            setMode(mode === 'signin' ? 'signup' : 'signin');
-            setError(null);
-            setInfo(null);
-          }}
-          className="mt-4 w-full text-center text-sm text-slate-500 hover:text-brand-800"
-        >
-          {mode === 'signin' ? "Don't have an account? Create one" : 'Already have an account? Sign in'}
-        </button>
+        {mode === 'forgot' ? (
+          <button
+            onClick={() => switchMode('signin')}
+            className="mt-4 w-full text-center text-sm text-slate-500 hover:text-brand-800"
+          >
+            Back to sign in
+          </button>
+        ) : (
+          <button
+            onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
+            className="mt-4 w-full text-center text-sm text-slate-500 hover:text-brand-800"
+          >
+            {mode === 'signin' ? "Don't have an account? Create one" : 'Already have an account? Sign in'}
+          </button>
+        )}
 
         {mode === 'signup' && (
           <p className="mt-4 text-center text-xs text-slate-400">

@@ -5,6 +5,7 @@ import { useSubscription } from './lib/useSubscription';
 import Layout from './components/Layout';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
 import NewCosting from './pages/NewCosting';
 import SavedCostings from './pages/SavedCostings';
 import Suppliers from './pages/Suppliers';
@@ -57,6 +58,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route
