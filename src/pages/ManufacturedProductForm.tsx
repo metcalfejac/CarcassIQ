@@ -217,8 +217,8 @@ export default function ManufacturedProductForm() {
           For products made from multiple ingredients — burgers, sausages, pies, ready meals.
         </p>
 
-        <div className="mt-4 grid grid-cols-2 gap-4">
-          <Field label="Product name" className="col-span-2">
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Product name" className="sm:col-span-2">
             <input
               required
               value={form.productName}
@@ -241,7 +241,7 @@ export default function ManufacturedProductForm() {
           <Field label={form.sellingMethod === 'per_kg' ? 'Selling price (£/kg)' : 'Selling price (£/unit)'}>
             <NumberInput value={form.sellingPrice} onChange={(v) => updateForm('sellingPrice', v)} />
           </Field>
-          <Field label="Target gross margin (%)" className="col-span-2">
+          <Field label="Target gross margin (%)" className="sm:col-span-2">
             <NumberInput value={form.targetMarginPct} onChange={(v) => updateForm('targetMarginPct', v)} step={1} />
           </Field>
         </div>
@@ -333,7 +333,7 @@ export default function ManufacturedProductForm() {
           Optional — for products sold individually (burgers, pies). Enter either one; if you know the actual
           yield, enter that and it'll be used instead of an estimate.
         </p>
-        <div className="mt-4 grid grid-cols-2 gap-4">
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label={`Weight per unit (${weightUnit})`}>
             <NumberInput
               value={form.unitWeightKg}

@@ -545,8 +545,8 @@ export default function NewCosting() {
               Enter what you paid for the whole animal, then break it into the cuts you got from it.
             </p>
 
-            <div className="mt-4 grid grid-cols-2 gap-4">
-              <Field label="Carcass name" className="col-span-2">
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Carcass name" className="sm:col-span-2">
                 <input
                   required
                   value={carcassMeta.carcassName}
@@ -556,7 +556,7 @@ export default function NewCosting() {
                   list="product-name-suggestions"
                 />
               </Field>
-              <Field label="Supplier/Batch Code/Tag ID" className="col-span-2">
+              <Field label="Supplier/Batch Code/Tag ID" className="sm:col-span-2">
                 <input
                   required
                   value={carcassMeta.supplier}
@@ -575,7 +575,7 @@ export default function NewCosting() {
               <Field label="Price (£/kg)">
                 <NumberInput value={carcassMeta.pricePerKg} onChange={(v) => updateCarcassMeta('pricePerKg', v)} />
               </Field>
-              <Field label="Target gross margin (%)" className="col-span-2">
+              <Field label="Target gross margin (%)" className="sm:col-span-2">
                 <NumberInput
                   value={carcassMeta.targetMarginPct}
                   onChange={(v) => updateCarcassMeta('targetMarginPct', v)}
@@ -729,8 +729,8 @@ export default function NewCosting() {
           >
             <h1 className="text-lg font-semibold text-slate-900">{editId ? 'Edit costing' : 'New costing'}</h1>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Product name" className="col-span-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Product name" className="sm:col-span-2">
                 <input
                   required
                   value={form.productName}
@@ -740,7 +740,7 @@ export default function NewCosting() {
                   list="product-name-suggestions"
                 />
               </Field>
-              <Field label="Supplier/Batch Code/Tag ID" className="col-span-2">
+              <Field label="Supplier/Batch Code/Tag ID" className="sm:col-span-2">
                 <input
                   required
                   value={form.supplier}
@@ -751,7 +751,7 @@ export default function NewCosting() {
                 />
               </Field>
 
-              <Field label="Purchase weight/Joint weight (kg)">
+              <Field label="Purchase/Joint weight (kg)">
                 <NumberInput value={form.purchaseWeightKg} onChange={(v) => update('purchaseWeightKg', v)} />
               </Field>
               <Field label="Purchase/Cost price (£/kg)">
@@ -776,7 +776,7 @@ export default function NewCosting() {
                 )}
               </Field>
 
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <TrimGroupsEditor
                   groups={trimGroups}
                   onUpdate={updateTrimGroup}
