@@ -106,7 +106,6 @@ interface CutFormState {
   cutName: string;
   saleableWeightKg: string;
   trimGroups: TrimGroupFormState[];
-  wasteLabel: string;
   wasteWeightKg: string;
   sellingPricePerKg: string;
 }
@@ -117,7 +116,6 @@ function newCut(): CutFormState {
     cutName: '',
     saleableWeightKg: '',
     trimGroups: [newTrimGroup()],
-    wasteLabel: '',
     wasteWeightKg: '',
     sellingPricePerKg: '',
   };
@@ -318,7 +316,6 @@ export default function NewCosting() {
               cutName: row.product_name ?? '',
               saleableWeightKg: String(row.saleable_weight_kg ?? ''),
               trimGroups: trimGroupsFromRecord(row),
-              wasteLabel: row.waste_label ?? '',
               wasteWeightKg: String(row.waste_weight_kg ?? ''),
               sellingPricePerKg: String(row.selling_price_per_kg ?? ''),
             }))
@@ -433,7 +430,6 @@ export default function NewCosting() {
             weight_kg: num(g.weightKg),
             value_per_kg: num(g.valuePerKg),
           })),
-          waste_label: cut.wasteLabel.trim() || null,
           waste_weight_kg: waste,
           selling_price_per_kg: num(cut.sellingPricePerKg),
           target_margin_pct: targetMarginFraction,
@@ -640,7 +636,7 @@ export default function NewCosting() {
                     </button>
                   </div>
 
-                  <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div className="mt-2 grid grid-cols-3 gap-2">
                     <CompactField label="Saleable wt (kg)">
                       <CompactNumberInput
                         value={cut.saleableWeightKg}
@@ -653,18 +649,7 @@ export default function NewCosting() {
                         onChange={(v) => updateCut(cut.key, 'sellingPricePerKg', v)}
                       />
                     </CompactField>
-                  </div>
-
-                  <div className="mt-2 grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)] gap-1.5">
-                    <CompactField label="Waste/Drip">
-                      <input
-                        value={cut.wasteLabel}
-                        onChange={(e) => updateCut(cut.key, 'wasteLabel', e.target.value)}
-                        placeholder="e.g. Bones"
-                        className={compactInputClasses}
-                      />
-                    </CompactField>
-                    <CompactField label="Weight (kg)">
+                    <CompactField label="Waste/Drip (kg)">
                       <CompactNumberInput
                         value={cut.wasteWeightKg}
                         onChange={(v) => updateCut(cut.key, 'wasteWeightKg', v)}
