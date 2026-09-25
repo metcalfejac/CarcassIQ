@@ -7,7 +7,16 @@ import type { TrimGroup } from '../lib/calculations';
 import { formatGBP, formatPct, formatKg } from '../lib/format';
 import type { TrimGroupRecord } from '../lib/types';
 import MarginBadge from '../components/MarginBadge';
-import { CompactField, CompactNumberInput, Field, NumberInput, Result, compactInputClasses, inputClasses } from '../components/FormFields';
+import {
+  CompactField,
+  CompactNumberInput,
+  Field,
+  InfoTooltip,
+  NumberInput,
+  Result,
+  compactInputClasses,
+  inputClasses,
+} from '../components/FormFields';
 import ManufacturedProductForm from './ManufacturedProductForm';
 import { useSuggestions } from '../lib/useSuggestions';
 
@@ -758,10 +767,16 @@ export default function NewCosting() {
                 <NumberInput value={form.purchasePricePerKg} onChange={(v) => update('purchasePricePerKg', v)} />
               </Field>
 
-              <Field label="Saleable meat weight (kg)">
+              <Field
+                label="Saleable meat weight (kg)"
+                tooltip="The weight of the main product you can sell after trimming and waste."
+              >
                 <NumberInput value={form.saleableWeightKg} onChange={(v) => update('saleableWeightKg', v)} />
               </Field>
-              <Field label="Waste/Drip loss (kg)">
+              <Field
+                label="Waste/Drip loss (kg)"
+                tooltip="Weight with no recoverable value, such as drip loss, bone or waste."
+              >
                 <NumberInput
                   value={form.wasteWeightKg}
                   onChange={(v) => {
@@ -788,7 +803,10 @@ export default function NewCosting() {
               <Field label="Current selling price (£/kg)">
                 <NumberInput value={form.sellingPricePerKg} onChange={(v) => update('sellingPricePerKg', v)} />
               </Field>
-              <Field label="Target gross margin (%)">
+              <Field
+                label="Target gross margin (%)"
+                tooltip="The gross margin you'd like to make on this product."
+              >
                 <NumberInput value={form.targetMarginPct} onChange={(v) => update('targetMarginPct', v)} step={1} />
               </Field>
             </div>
@@ -823,11 +841,13 @@ export default function NewCosting() {
                     label="True usable cost/kg"
                     value={formatGBP(results.trueUsableCostPerKg)}
                     sub="Before trim credit"
+                    tooltip="Your cost per kg of saleable meat before crediting any value recovered from trim — total purchase cost ÷ saleable weight."
                   />
                   <Result
                     label="Adjusted usable cost/kg"
                     value={formatGBP(results.adjustedUsableCostPerKg)}
                     sub="After trim recovery — your real cost"
+                    tooltip="Your effective cost per kg of saleable meat after crediting the value recovered from trim."
                     highlight
                   />
                   <Result label="Trim recovery value" value={formatGBP(results.trimRecoveryValue)} />
@@ -874,8 +894,11 @@ function TrimGroupsEditor({
   return (
     <div>
       <div className="flex items-center justify-between">
-        <span className={compact ? 'text-xs font-medium text-slate-500' : 'text-sm font-medium text-slate-700'}>
+        <span
+          className={`inline-flex items-center ${compact ? 'text-xs font-medium text-slate-500' : 'text-sm font-medium text-slate-700'}`}
+        >
           Trim recovered
+          <InfoTooltip text="Usable trim that still has value, such as meat used for mince, burgers or diced beef." />
         </span>
         <button
           type="button"
@@ -885,6 +908,17 @@ function TrimGroupsEditor({
           + Add trim group
         </button>
       </div>
+      {!compact && (
+        <div className="mt-2 grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto] gap-1.5 px-1 text-xs font-medium text-slate-500">
+          <span>Trim type</span>
+          <span>Weight (kg)</span>
+          <span className="inline-flex items-center">
+            £/kg
+            <InfoTooltip text="What this trim is worth when used elsewhere." />
+          </span>
+          <span />
+        </div>
+      )}
       <div className="mt-1 space-y-1.5">
         {groups.map((g) => (
           <div key={g.key} className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto] gap-1.5">
