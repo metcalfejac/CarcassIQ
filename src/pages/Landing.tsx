@@ -108,23 +108,23 @@ function ExampleCard() {
   return (
     <div className="mx-auto mt-12 max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-lg shadow-slate-200/60">
       <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Worked example</p>
-      <p className="mt-1 text-sm text-slate-500">Whole lamb, purchased for £6.50/kg</p>
+      <p className="mt-1 text-sm text-slate-500">Whole sirloin, purchased for £16.00/kg</p>
       <div className="mt-4 space-y-2.5">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-          <span className="text-sm text-slate-600">Deadweight</span>
-          <span className="text-sm font-medium text-slate-900">20.0 kg</span>
+          <span className="text-sm text-slate-600">Purchase weight</span>
+          <span className="text-sm font-medium text-slate-900">4.5 kg</span>
         </div>
         <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-          <span className="text-sm text-slate-600">Total carcass cost</span>
-          <span className="text-sm font-medium text-slate-900">£130.00</span>
+          <span className="text-sm text-slate-600">Saleable weight after trim</span>
+          <span className="text-sm font-medium text-slate-900">3.7 kg</span>
         </div>
         <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
           <span className="text-sm text-slate-600">True usable cost/kg</span>
-          <span className="text-sm font-medium text-slate-900">£8.13</span>
+          <span className="text-sm font-medium text-slate-900">£19.46</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-slate-700">Overall gross margin</span>
-          <span className="rounded-full bg-brand-50 px-2.5 py-1 text-sm font-semibold text-brand-800">31.4%</span>
+          <span className="text-sm font-semibold text-slate-700">Gross margin at £28.00/kg</span>
+          <span className="rounded-full bg-brand-50 px-2.5 py-1 text-sm font-semibold text-brand-800">32.4%</span>
         </div>
       </div>
     </div>
