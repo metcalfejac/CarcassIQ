@@ -17,7 +17,6 @@ interface FormState {
   purchaseWeightKg: string;
   purchasePricePerKg: string;
   saleableWeightKg: string;
-  wasteLabel: string;
   wasteWeightKg: string;
   sellingPricePerKg: string;
   /** Whole percent, e.g. "30" */
@@ -30,7 +29,6 @@ const emptyForm: FormState = {
   purchaseWeightKg: '',
   purchasePricePerKg: '',
   saleableWeightKg: '',
-  wasteLabel: '',
   wasteWeightKg: '',
   sellingPricePerKg: '',
   targetMarginPct: '30',
@@ -151,6 +149,10 @@ export default function NewCosting() {
   // --- Single product state ---
   const [form, setForm] = useState<FormState>(emptyForm);
   const [trimGroups, setTrimGroups] = useState<TrimGroupFormState[]>([newTrimGroup()]);
+  // Waste auto-fills as purchase/saleable/trim change, until the user types
+  // their own value in — then we leave it alone. Off by default when
+  // loading a saved costing, so we don't overwrite the recorded figure.
+  const [wasteAutoFill, setWasteAutoFill] = useState(!sourceId);
 
   useEffect(() => {
     if (!sourceId) return;
@@ -170,7 +172,6 @@ export default function NewCosting() {
             purchaseWeightKg: String(data.purchase_weight_kg ?? ''),
             purchasePricePerKg: String(data.purchase_price_per_kg ?? ''),
             saleableWeightKg: String(data.saleable_weight_kg ?? ''),
-            wasteLabel: data.waste_label ?? '',
             wasteWeightKg: String(data.waste_weight_kg ?? ''),
             sellingPricePerKg: String(data.selling_price_per_kg ?? ''),
             targetMarginPct: String((data.target_margin_pct ?? 0) * 100),
@@ -182,6 +183,20 @@ export default function NewCosting() {
   }, [sourceId]);
 
   const trimSummary = useMemo(() => aggregateTrimGroups(trimGroupsToNumeric(trimGroups)), [trimGroups]);
+
+  // Suggest waste as the remainder once purchase and saleable weight are both
+  // known: purchase − saleable − trim. Only while wasteAutoFill is on — the
+  // waste field's own onChange turns this off as soon as the user types
+  // their own value there.
+  useEffect(() => {
+    if (!wasteAutoFill) return;
+    const purchase = num(form.purchaseWeightKg);
+    const saleable = num(form.saleableWeightKg);
+    if (purchase <= 0 || saleable <= 0) return;
+    const suggested = Math.max(0, purchase - saleable - trimSummary.totalWeightKg);
+    const suggestedStr = String(Math.round(suggested * 100) / 100);
+    setForm((f) => (f.wasteWeightKg === suggestedStr ? f : { ...f, wasteWeightKg: suggestedStr }));
+  }, [wasteAutoFill, form.purchaseWeightKg, form.saleableWeightKg, trimSummary.totalWeightKg]);
 
   const results = useMemo(
     () =>
@@ -237,7 +252,6 @@ export default function NewCosting() {
         weight_kg: num(g.weightKg),
         value_per_kg: num(g.valuePerKg),
       })),
-      waste_label: form.wasteLabel.trim() || null,
       waste_weight_kg: num(form.wasteWeightKg),
       selling_price_per_kg: num(form.sellingPricePerKg),
       target_margin_pct: num(form.targetMarginPct) / 100,
@@ -748,17 +762,18 @@ export default function NewCosting() {
                 <NumberInput value={form.saleableWeightKg} onChange={(v) => update('saleableWeightKg', v)} />
               </Field>
               <Field label="Waste/Drip loss (kg)">
-                <div className="grid grid-cols-[1fr_auto] gap-2">
-                  <input
-                    value={form.wasteLabel}
-                    onChange={(e) => update('wasteLabel', e.target.value)}
-                    placeholder="e.g. Bones"
-                    className={inputClasses}
-                  />
-                  <div className="w-24">
-                    <NumberInput value={form.wasteWeightKg} onChange={(v) => update('wasteWeightKg', v)} />
-                  </div>
-                </div>
+                <NumberInput
+                  value={form.wasteWeightKg}
+                  onChange={(v) => {
+                    update('wasteWeightKg', v);
+                    setWasteAutoFill(v.trim() === '');
+                  }}
+                />
+                {wasteAutoFill && form.wasteWeightKg && (
+                  <p className="mt-1 text-xs text-slate-400">
+                    Auto-calculated as purchase − saleable − trim. Edit to override.
+                  </p>
+                )}
               </Field>
 
               <div className="col-span-2">
